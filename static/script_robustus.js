@@ -2661,6 +2661,7 @@ let isGraphLocked3 = false; // Inicialmente, la gráfica está desbloqueada.
 let isGraphLocked_boton = true;
 let isGraphLocked_boton2 = true;
 
+
 function plotUMAP(data, fechaInicio, fechaFin) {
 
     d3.select("#umap-plot-fusion").selectAll("*").remove();
@@ -3495,8 +3496,8 @@ function plotUMAP(data, fechaInicio, fechaFin) {
         updateCorrelationMatrixnew(selectedDates);
         drawThemeRiver(cityFile, selectedDates);
         updateRadialChartWithSelection(selectionData, fechaInicio, fechaFin);
-        plotUMAPcontCluster(filteredDataCont, fechaInicio, fechaFin, selectedDates, "blue");
-        plotUMAPmetCluster(filterDataMet, fechaInicio, fechaFin, selectedDates, "blue");
+        plotUMAPcontCluster(filteredDataCont, fechaInicio, fechaFin, selectedDates, "aqi");
+        plotUMAPmetCluster(filterDataMet, fechaInicio, fechaFin, selectedDates, "aqi");
         // Restaurar todos los puntos a su estado original antes de aplicar cambios a los puntos seleccionados
         svg.selectAll("circle")
             .attr("r", 6)  // Restaurar el radio original de los puntos (ajusta según el tamaño original)
@@ -3711,6 +3712,15 @@ function plotUMAPmetCluster(data, fechaInicio, fechaFin, clusterDates, clusterCo
         .style("font-size", "12px");
 
     // Dibujar los puntos
+    // Colores para AQI
+    const aqiColors = {
+        1: '#00E400', // Bueno
+        2: '#FFFF00', // Moderado
+        3: '#FF7E00', // Insalubre
+        4: '#FF0000', // Muy Insalubre
+        5: '#99004c', // Malo
+        6: '#800000', // Severo
+    };
     svg.selectAll("circle")
         .data(data)
         .enter()
@@ -3718,9 +3728,19 @@ function plotUMAPmetCluster(data, fechaInicio, fechaFin, clusterDates, clusterCo
         .attr("cx", d => xScale(d.UMAP1))
         .attr("cy", d => yScale(d.UMAP2))
         .attr("r", 5)
-        .attr("fill", d => clusterDateSet.has(`${d.year}-${d.month}-${d.day}`) ? clusterColor : "steelblue") // Usar el color del cluster
-        .attr("opacity", d => clusterDateSet.has(`${d.year}-${d.month}-${d.day}`) ? 1 : 0.2) // Opacidad baja si no está en clusterDates
-        .attr("stroke", d => clusterDateSet.has(`${d.year}-${d.month}-${d.day}`) ? "black" : "none") // Borde negro si está en clusterDates
+        .attr("fill", d => {
+            if (clusterDateSet.has(`${d.year}-${d.month}-${d.day}`)) {
+                if (clusterColor === "aqi") {
+                    return aqiColors[d.AQI] || "#000";
+                } else {
+                    return clusterColor;
+                }
+            } else {
+                return "steelblue";
+            }
+        })
+        .attr("opacity", d => clusterDateSet.has(`${d.year}-${d.month}-${d.day}`) ? 1 : 0.2)
+        .attr("stroke", d => clusterDateSet.has(`${d.year}-${d.month}-${d.day}`) ? "black" : "none")
         .attr("stroke-width", d => clusterDateSet.has(`${d.year}-${d.month}-${d.day}`) ? 1 : 0)
         .on("mouseover", function (event, d) {
             tooltip.style("visibility", "visible")
@@ -3729,7 +3749,6 @@ function plotUMAPmetCluster(data, fechaInicio, fechaFin, clusterDates, clusterCo
                     <strong>Fecha:</strong> ${d.day}/${d.month}/${d.year}<br>
                     <strong>AQI:</strong> ${d.AQI}
                 `);
-
             d3.select(this)
                 .attr("r", 10)
                 .attr("stroke-width", 3);
@@ -3740,7 +3759,6 @@ function plotUMAPmetCluster(data, fechaInicio, fechaFin, clusterDates, clusterCo
         })
         .on("mouseout", function (event, d) {
             tooltip.style("visibility", "hidden");
-
             d3.select(this)
                 .attr("r", 6)
                 .attr("stroke-width", d => clusterDateSet.has(`${d.year}-${d.month}-${d.day}`) ? 1 : 0); 
@@ -3883,6 +3901,15 @@ function plotUMAPfusionCluster(data, fechaInicio, fechaFin, clusterDates, cluste
         .style("font-size", "12px");
 
     // Dibujar los puntos
+    // Colores para AQI
+    const aqiColors = {
+        1: '#00E400', // Bueno
+        2: '#FFFF00', // Moderado
+        3: '#FF7E00', // Insalubre
+        4: '#FF0000', // Muy Insalubre
+        5: '#99004c', // Malo
+        6: '#800000', // Severo
+    };
     svg.selectAll("circle")
         .data(data)
         .enter()
@@ -3890,9 +3917,19 @@ function plotUMAPfusionCluster(data, fechaInicio, fechaFin, clusterDates, cluste
         .attr("cx", d => xScale(d.UMAP1))
         .attr("cy", d => yScale(d.UMAP2))
         .attr("r", 5)
-        .attr("fill", d => clusterDateSet.has(`${d.year}-${d.month}-${d.day}`) ? clusterColor : "steelblue") // Usar el color del cluster
-        .attr("opacity", d => clusterDateSet.has(`${d.year}-${d.month}-${d.day}`) ? 1 : 0.2) // Opacidad baja si no está en clusterDates
-        .attr("stroke", d => clusterDateSet.has(`${d.year}-${d.month}-${d.day}`) ? "black" : "none") // Borde negro si está en clusterDates
+        .attr("fill", d => {
+            if (clusterDateSet.has(`${d.year}-${d.month}-${d.day}`)) {
+                if (clusterColor === "aqi") {
+                    return aqiColors[d.AQI] || "#000";
+                } else {
+                    return clusterColor;
+                }
+            } else {
+                return "steelblue";
+            }
+        })
+        .attr("opacity", d => clusterDateSet.has(`${d.year}-${d.month}-${d.day}`) ? 1 : 0.2)
+        .attr("stroke", d => clusterDateSet.has(`${d.year}-${d.month}-${d.day}`) ? "black" : "none")
         .attr("stroke-width", d => clusterDateSet.has(`${d.year}-${d.month}-${d.day}`) ? 1 : 0)
         .on("mouseover", function (event, d) {
             tooltip.style("visibility", "visible")
@@ -3901,7 +3938,6 @@ function plotUMAPfusionCluster(data, fechaInicio, fechaFin, clusterDates, cluste
                     <strong>Fecha:</strong> ${d.day}/${d.month}/${d.year}<br>
                     <strong>AQI:</strong> ${d.AQI}
                 `);
-
             d3.select(this)
                 .attr("r", 10)
                 .attr("stroke-width", 3);
@@ -3912,7 +3948,6 @@ function plotUMAPfusionCluster(data, fechaInicio, fechaFin, clusterDates, cluste
         })
         .on("mouseout", function (event, d) {
             tooltip.style("visibility", "hidden");
-
             d3.select(this)
                 .attr("r", 6)
                 .attr("stroke-width", d => clusterDateSet.has(`${d.year}-${d.month}-${d.day}`) ? 1 : 0); 
@@ -4066,6 +4101,15 @@ function plotUMAPcontCluster(data, fechaInicio, fechaFin, clusterDates, clusterC
         .style("font-size", "12px");
 
     // Dibujar los puntos
+    // Colores para AQI
+    const aqiColors = {
+        1: '#00E400', // Bueno
+        2: '#FFFF00', // Moderado
+        3: '#FF7E00', // Insalubre
+        4: '#FF0000', // Muy Insalubre
+        5: '#99004c', // Malo
+        6: '#800000', // Severo
+    };
     svg.selectAll("circle")
         .data(data)
         .enter()
@@ -4073,7 +4117,17 @@ function plotUMAPcontCluster(data, fechaInicio, fechaFin, clusterDates, clusterC
         .attr("cx", d => xScale(d.UMAP1))
         .attr("cy", d => yScale(d.UMAP2))
         .attr("r", 6)
-        .attr("fill", d => clusterDateSet.has(`${d.year}-${d.month}-${d.day}`) ? clusterColor : "steelblue")
+        .attr("fill", d => {
+            if (clusterDateSet.has(`${d.year}-${d.month}-${d.day}`)) {
+                if (clusterColor === "aqi") {
+                    return aqiColors[d.AQI] || "#000";
+                } else {
+                    return clusterColor;
+                }
+            } else {
+                return "steelblue";
+            }
+        })
         .attr("opacity", d => clusterDateSet.has(`${d.year}-${d.month}-${d.day}`) ? 1 : 0.2)
         .attr("stroke", d => clusterDateSet.has(`${d.year}-${d.month}-${d.day}`) ? "black" : "none")
         .attr("stroke-width", d => clusterDateSet.has(`${d.year}-${d.month}-${d.day}`) ? 1 : 0)
@@ -4084,7 +4138,6 @@ function plotUMAPcontCluster(data, fechaInicio, fechaFin, clusterDates, clusterC
                     <strong>Fecha:</strong> ${d.day}/${d.month}/${d.year}<br>
                     <strong>AQI:</strong> ${d.AQI}
                 `);
-
             d3.select(this)
                 .attr("r", 10)
                 .attr("stroke-width", 3);
@@ -4095,7 +4148,6 @@ function plotUMAPcontCluster(data, fechaInicio, fechaFin, clusterDates, clusterC
         })
         .on("mouseout", function (event, d) {
             tooltip.style("visibility", "hidden");
-
             d3.select(this)
                 .attr("r", 6)
                 .attr("stroke-width", d => clusterDateSet.has(`${d.year}-${d.month}-${d.day}`) ? 1 : 0); 
@@ -5002,8 +5054,8 @@ function plotUMAPcont(data, fechaInicio, fechaFin) {
         updateCorrelationMatrixnew(selectedDates);
         drawThemeRiver(cityFile, selectedDates);
         updateRadialChartWithSelection(selectionData, fechaInicio, fechaFin);
-        plotUMAPfusionCluster(filterDataFusion, fechaInicio, fechaFin, selectedDates, "blue");
-        plotUMAPmetCluster(filterDataMet, fechaInicio, fechaFin, selectedDates, "blue");
+        plotUMAPfusionCluster(filterDataFusion, fechaInicio, fechaFin, selectedDates, "aqi");
+        plotUMAPmetCluster(filterDataMet, fechaInicio, fechaFin, selectedDates, "aqi");
         // Restaurar todos los puntos a su estado original antes de aplicar cambios a los puntos seleccionados
         svg.selectAll("circle")
             .attr("r", 6)  // Restaurar el radio original de los puntos (ajusta según el tamaño original)
@@ -5946,8 +5998,8 @@ function plotUMAPmet(data, fechaInicio, fechaFin) {
         updateCorrelationMatrixnew(selectedDates);
         drawThemeRiver(cityFile, selectedDates);
         updateRadialChartWithSelection(selectionData, fechaInicio, fechaFin);
-        plotUMAPfusionCluster(filterDataFusion, fechaInicio, fechaFin, selectedDates, "blue");
-        plotUMAPcontCluster(filteredDataCont, fechaInicio, fechaFin, selectedDates, "blue");
+        plotUMAPfusionCluster(filterDataFusion, fechaInicio, fechaFin, selectedDates, "aqi");
+        plotUMAPcontCluster(filteredDataCont, fechaInicio, fechaFin, selectedDates, "aqi");
         svg.selectAll("circle")
             .attr("r", 6)  // Restaurar el radio original de los puntos (ajusta según el tamaño original)
             .attr("stroke", "none");  // Eliminar el borde azul
@@ -5971,7 +6023,6 @@ function plotUMAPmet(data, fechaInicio, fechaFin) {
  
 
 }
-
 
 
 
