@@ -354,7 +354,7 @@ label#checkbox-container {
 }
 
 #correlation-gradient {
-    background: linear-gradient(to top, red, blue); /* De rojo a azul */
+    background: linear-gradient(to top, blue, red); /* De rojo a azul */
     height: 100%;
 }
 
@@ -627,7 +627,7 @@ select {
 
 #distribucion-espacio-temporal
 {
-    height: 75%;
+    height: 103%;
     width: 45.5%;
     position: absolute; /* Cambia a posición absoluta */
     top: 1%; /* Ajusta la posición vertical */
@@ -643,7 +643,7 @@ select {
     height: 66.5%;
     width: 45.5%;
     position: absolute; /* Cambia a posición absoluta */
-    top: 80%; /* Ajusta la posición vertical */
+    top: 108%; /* Ajusta la posición vertical */
     left: 125.95%; /* Ajusta la posición horizontal */
     background-color: #fff; /* Fondo blanco para la sección de visualización */
     border: 1px solid #333;
