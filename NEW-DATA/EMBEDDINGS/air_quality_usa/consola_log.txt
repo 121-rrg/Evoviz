@@ -1,0 +1,115 @@
+============================================================
+LOG DE ENTRENAMIENTO TFAN
+Dataset: air_quality_usa
+Fecha: 2026-03-05 19:42:21
+============================================================
+
+DISPOSITIVO: cuda:0
+GPU: NVIDIA GeForce RTX 4060
+VRAM: 8.59 GB
+
+============================================================
+DATOS
+============================================================
+AQ_PATH: C:\Users\User\Downloads\TFAN-a-Attention-based-network-for-Air-Quality-Prediction\data\ImputAQ\air_quality_usa.csv
+ML_PATH: C:\Users\User\Downloads\TFAN-a-Attention-based-network-for-Air-Quality-Prediction\data\Meteo\meteorology_usa.csv
+STATION_PATH: C:\Users\User\Downloads\TFAN-a-Attention-based-network-for-Air-Quality-Prediction\data\Station\station_usa.csv
+Frecuencia: daily
+seq_len: 30
+pred_len: 7
+Muestras train: 20168
+Muestras val: 5042
+Muestras test: 5042
+
+============================================================
+HIPERPARÁMETROS DEL MODELO
+============================================================
+d_feature: 12
+d_embedding: 256
+d_hidden: 256
+Q, K, V: 8, 8, 8
+H (heads): 64
+N (encoders): (2, 1)
+PE: True
+Mask: False
+Dropout: 0.1
+Total parámetros: 3,998,748
+
+============================================================
+CONFIGURACIÓN DE ENTRENAMIENTO
+============================================================
+Batch Size: 32 (efectivo: 64)
+Learning Rate: 0.0005
+LR Weight (output): 0.001
+Weight Decay: 1e-05
+Optimizer: AdamW
+Scheduler: Cosine Annealing con Warmup (5 épocas)
+Loss: HuberLoss (delta=1.0) sobre las 12 features
+Gradient Accumulation Steps: 2
+Mixed Precision: True
+Patience: 20
+Min Delta: 1e-05
+Max Epochs: 50
+Seed: 30
+
+============================================================
+RESULTADOS DE ENTRENAMIENTO
+============================================================
+Épocas completadas: 26
+Mejor época: 6
+Loss mínimo (train): 0.010675
+Loss mínimo (val): 0.108233
+Loss en test: 0.257440
+LR final: 2.76e-04
+
+============================================================
+MÉTRICAS POR FEATURE
+============================================================
+Feature                MAE       RMSE      MAPE%         R²
+-------------------------------------------------------
+PM2.5              23.9086    36.9962      42.58     0.3041
+PM10               13.9695    29.5206      43.37     0.1570
+NO2                 3.7473     5.5899      44.35     0.3591
+CO                  1.3561     2.1922      34.25     0.2699
+O3                  9.8144    15.7674      30.85     0.4531
+SO2                 1.5283     3.8508      52.24     0.1630
+Temp                0.0000     0.0000       0.00     0.0000
+Presión             0.0000     0.0000       0.00     0.0000
+Humedad             0.0000     0.0000       0.00     0.0000
+Vel.Viento          0.0000     0.0000       0.00     0.0000
+Clima               0.0000     0.0000       0.00     0.0000
+Dir.Viento          0.0000     0.0000       0.00     0.0000
+-------------------------------------------------------
+PROMEDIO            4.5270     7.8264      20.64     0.1422
+
+============================================================
+HISTÓRICO DE LOSS
+============================================================
+ Epoch   Train Loss     Val Loss           LR
+--------------------------------------------
+     1     0.119099     0.120184     1.00e-04
+     2     0.103344     0.111851     2.00e-04
+     3     0.090408     0.114481     3.00e-04
+     4     0.079325     0.110841     4.00e-04
+     5     0.069337     0.110901     5.00e-04
+     6     0.061897     0.108233     4.99e-04
+     7     0.053216     0.109701     4.98e-04
+     8     0.045872     0.109276     4.95e-04
+     9     0.041852     0.113642     4.90e-04
+    10     0.038672     0.113685     4.85e-04
+    11     0.035717     0.112898     4.78e-04
+    12     0.032960     0.116891     4.71e-04
+    13     0.029983     0.117146     4.62e-04
+    14     0.024123     0.115863     4.52e-04
+    15     0.021915     0.117978     4.42e-04
+    16     0.020591     0.118731     4.30e-04
+    17     0.019404     0.119764     4.17e-04
+    18     0.018543     0.117788     4.04e-04
+    19     0.017590     0.120078     3.90e-04
+    20     0.014719     0.120154     3.75e-04
+    21     0.013263     0.117618     3.60e-04
+    22     0.012780     0.118868     3.44e-04
+    23     0.012309     0.120203     3.27e-04
+    24     0.011804     0.120689     3.10e-04
+    25     0.011505     0.119887     2.93e-04
+    26     0.010675     0.119425     2.76e-04

@@ -1,0 +1,231 @@
+{
+  "stations": {
+    "China": [
+      {
+        "id": "1000",
+        "name": "China Station 1000",
+        "file": "China_1000.csv"
+      },
+      {
+        "id": "1001",
+        "name": "China Station 1001",
+        "file": "China_1001.csv"
+      },
+      {
+        "id": "1002",
+        "name": "China Station 1002",
+        "file": "China_1002.csv"
+      },
+      {
+        "id": "1003",
+        "name": "China Station 1003",
+        "file": "China_1003.csv"
+      },
+      {
+        "id": "1004",
+        "name": "China Station 1004",
+        "file": "China_1004.csv"
+      },
+      {
+        "id": "1005",
+        "name": "China Station 1005",
+        "file": "China_1005.csv"
+      },
+      {
+        "id": "1006",
+        "name": "China Station 1006",
+        "file": "China_1006.csv"
+      },
+      {
+        "id": "1007",
+        "name": "China Station 1007",
+        "file": "China_1007.csv"
+      },
+      {
+        "id": "1008",
+        "name": "China Station 1008",
+        "file": "China_1008.csv"
+      }
+    ],
+    "India": [
+      {
+        "id": "2000",
+        "name": "India Station 2000",
+        "file": "India_2000.csv"
+      },
+      {
+        "id": "2001",
+        "name": "India Station 2001",
+        "file": "India_2001.csv"
+      },
+      {
+        "id": "2002",
+        "name": "India Station 2002",
+        "file": "India_2002.csv"
+      },
+      {
+        "id": "2003",
+        "name": "India Station 2003",
+        "file": "India_2003.csv"
+      },
+      {
+        "id": "2004",
+        "name": "India Station 2004",
+        "file": "India_2004.csv"
+      },
+      {
+        "id": "2005",
+        "name": "India Station 2005",
+        "file": "India_2005.csv"
+      },
+      {
+        "id": "2006",
+        "name": "India Station 2006",
+        "file": "India_2006.csv"
+      },
+      {
+        "id": "2007",
+        "name": "India Station 2007",
+        "file": "India_2007.csv"
+      },
+      {
+        "id": "2008",
+        "name": "India Station 2008",
+        "file": "India_2008.csv"
+      },
+      {
+        "id": "2009",
+        "name": "India Station 2009",
+        "file": "India_2009.csv"
+      }
+    ],
+    "USA": [
+      {
+        "id": "3000",
+        "name": "USA Station 3000",
+        "file": "USA_3000.csv"
+      },
+      {
+        "id": "3001",
+        "name": "USA Station 3001",
+        "file": "USA_3001.csv"
+      },
+      {
+        "id": "3002",
+        "name": "USA Station 3002",
+        "file": "USA_3002.csv"
+      },
+      {
+        "id": "3003",
+        "name": "USA Station 3003",
+        "file": "USA_3003.csv"
+      },
+      {
+        "id": "3004",
+        "name": "USA Station 3004",
+        "file": "USA_3004.csv"
+      },
+      {
+        "id": "3005",
+        "name": "USA Station 3005",
+        "file": "USA_3005.csv"
+      },
+      {
+        "id": "3006",
+        "name": "USA Station 3006",
+        "file": "USA_3006.csv"
+      },
+      {
+        "id": "3007",
+        "name": "USA Station 3007",
+        "file": "USA_3007.csv"
+      },
+      {
+        "id": "3008",
+        "name": "USA Station 3008",
+        "file": "USA_3008.csv"
+      },
+      {
+        "id": "3009",
+        "name": "USA Station 3009",
+        "file": "USA_3009.csv"
+      },
+      {
+        "id": "3010",
+        "name": "USA Station 3010",
+        "file": "USA_3010.csv"
+      },
+      {
+        "id": "3011",
+        "name": "USA Station 3011",
+        "file": "USA_3011.csv"
+      }
+    ],
+    "Peru": [
+      {
+        "id": "4000",
+        "name": "Peru Station 4000",
+        "file": "Peru_4000.csv"
+      },
+      {
+        "id": "4001",
+        "name": "Peru Station 4001",
+        "file": "Peru_4001.csv"
+      },
+      {
+        "id": "4002",
+        "name": "Peru Station 4002",
+        "file": "Peru_4002.csv"
+      },
+      {
+        "id": "4003",
+        "name": "Peru Station 4003",
+        "file": "Peru_4003.csv"
+      },
+      {
+        "id": "4004",
+        "name": "Peru Station 4004",
+        "file": "Peru_4004.csv"
+      },
+      {
+        "id": "4005",
+        "name": "Peru Station 4005",
+        "file": "Peru_4005.csv"
+      },
+      {
+        "id": "4006",
+        "name": "Peru Station 4006",
+        "file": "Peru_4006.csv"
+      },
+      {
+        "id": "4007",
+        "name": "Peru Station 4007",
+        "file": "Peru_4007.csv"
+      }
+    ]
+  },
+  "ranges": {
+    "China": {
+      "min": "2019-01-01",
+      "max": "2025-12-31"
+    },
+    "India": {
+      "min": "2019-01-01",
+      "max": "2025-12-31"
+    },
+    "USA": {
+      "min": "2019-01-01",
+      "max": "2025-12-31"
+    },
+    "Peru": {
+      "min": "2019-01-01",
+      "max": "2025-12-31"
+    }
+  },
+  "averaged_files": {
+    "China": "China_Averaged.csv",
+    "India": "India_Averaged.csv",
+    "USA": "USA_Averaged.csv",
+    "Peru": "Peru_Averaged.csv"
+  }
+}

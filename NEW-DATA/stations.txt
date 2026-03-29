@@ -1,0 +1,40 @@
+id,station_name,country,city,latitude,longitude,zona
+1000,"beijing",China,Beijing,40.175747,116.38149,Urban
+1001,"chaoyang-agricultural exhibition hall",China,Chaoyang,25.905096,100.21834,Urban
+1002,"dongcheng-dongsi",China,Beijing,39.964848,116.39665,Urban
+1003,"fengtai-yungang",China,Beijing,39.824253,116.19778,Suburban
+1004,"haidian-wanliu",China,Haidiandistrict,39.964848,116.27095,Urban
+1005,"huangcunzhen,-daxing",China,Daxingdistrict,39.753952,116.28651,Suburban
+1006,shijingshan-city,China,Shijingshandistrict,22.24956,113.52273,Urban
+1007,"temple-of heaven, dongcheng",China,Beijing,39.89455,116.35983,Urban
+1008,"wanshou-temple",China,Beijing,39.964848,116.27095,Urban
+2000,"anand-vihar, delhi",India,Delhi,28.646748,77.2748,Traffic
+2001,"ashok-nagar, udaipur",India,Udaipur,24.569418,73.73262,Urban
+2002,"civil-lines, ajmer",India,Ajmer,26.889278,75.73171,Urban
+2003,"dr.-karni singh shooting range, delhi",India,Delhi,28.50615,77.30375,Suburban
+2004,"mandir-marg, delhi",India,Delhi,28.646748,77.17218,Urban
+2005,"police-commissionerate, jaipur",India,Jaipur,26.889278,75.83149,Urban
+2006,"punjabi-bagh, delhi, delhi, india",India,Delhi,28.6692,77.1259,Traffic
+2007,"pusa,-delhi",India,Delhi,28.6365,77.1733,Urban
+2008,"r.k.-puram, delhi, delhi, india",India,Delhi,28.576448,77.18678,Urban
+2009,"shrinath-puram, kota",India,Kota,25.202108,75.80994,Urban
+3000,"bakersfield-california-avenue, kern, california",USA,Bakersfield,35.395428,-119.03969,Urban
+3001,"clovis-n-villa avenue, fresno, california",USA,Clovis,36.731106,-119.76378,Suburban
+3002,"fresno-- garland, fresno, california",USA,Fresno,36.801403,-119.80289,Urban
+3003,"hanford-s-irwin street, kings, california",USA,Hanford,36.309315,-119.64844,Urban
+3004,"lebec,-kern, california",USA,Lebec,34.83304,-118.859314,Rural
+3005,"ojai-- east ojai av, ventura, california",USA,Ojai,34.411247,-119.20755,Suburban
+3006,"piru-- pacific, ventura, california",USA,Piru,34.27065,-119.24718,Rural
+3007,"porterville,-tulare, california",USA,Porterville,36.02812,-119.0285,Urban
+3008,"reseda,-los angeles",USA,Los Angeles,34.20035,-118.53383,Urban
+3009,"santa-clarita-placerita, los angeles",USA,Santa Clarita,34.411247,-118.415085,Suburban
+3010,"simi-valley - cochran street, ventura, california",USA,Simi Valley,34.27065,-118.682556,Suburban
+3011,"west-park officials",USA,West Park,25.975393,-80.16394,Urban
+4000,"campo-de marte, lima",Peru,Lima,-12.056238,-77.06198,Urban
+4001,"carabayllo,-lima",Peru,Lima,-11.845343,-77.01614,Suburban
+4002,"puente-piedra, lima",Peru,Lima,-11.845343,-77.09677,Suburban
+4003,"san-borja, lima",Peru,Lima,-12.126537,-76.96942,Urban
+4004,"san-juan de lurigancho, lima",Peru,Lima,-11.98594,-76.99283,Urban
+4005,"san-martin de porres, lima",Peru,Lima,-11.98594,-77.07361,Urban
+4006,"santa-anita, lima",Peru,Lima,-12.056238,-76.98111,Urban
+4007,"villa-maria del triunfo, lima",Peru,Lima,-12.126537,-76.88849,Suburban

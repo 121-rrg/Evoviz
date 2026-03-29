@@ -1,0 +1,1 @@
+time,station,PM2_5,PM10,NO2,CO,O3,SO2,TEMP,PRES,DEWP,WSPM,weather,wind_direction,year,month,day,AQI,Kmeans_3,Kmeans_4,Kmeans_6,Kmeans_12,UMAP1,UMAP2,RAIN

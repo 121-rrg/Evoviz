@@ -1,136 +1,200 @@
 body {
+    --sidebar: 180px;
     margin: 0;
     padding: 0;
     height: 100vh;
     display: flex;
-    justify-content: flex-start; /* Alinea el contenido a la izquierda */
-    align-items: flex-start; /* Alinea el contenido en la parte superior */
+    justify-content: flex-start;
+    align-items: flex-start;
     background-color: #f0f0f0;
-    font-family: Arial, sans-serif; /* Establece una fuente más legible */
+    font-family: Arial, sans-serif;
 }
 
 #map {
     height: 50.1%;
-    width: 26%;
-    position: absolute; /* Cambia a posición absoluta */
-    top: 1%; /* Ajusta la posición vertical */
-    left: 9.9%; /* Ajusta la posición horizontal */
+    width: calc(35.4%);
+    position: absolute;
+    top: 1%;
+    left: calc(var(--sidebar) + 0.5%);
     border: 1px solid #333;
     border-radius: 3px;
 }
 
-#dashboard
-{
-    height: 48%;
-    width: 8%;
-    position: absolute; /* Cambia a posición absoluta */
-    top: 1%; /* Ajusta la posición vertical */
-    left: 0.5%; /* Ajusta la posición horizontal */
-    border: 1px solid #333;
+#dashboard {
+    width: 175px;
+    min-width: 175px;
+    height: 98%;
+    position: absolute;
+    top: 1%;
+    left: 0.5%;
+    border: 1px solid #c8ddd4;
     border-radius: 8px;
-    background-color: #fff; /* Fondo blanco para la sección de visualización */
     background-color: #fff;
-    border-radius: 3px;
-    font-size: 0.9em; /* Cambia el tamaño de la fuente a más pequeño */
-    padding: 10px;
-    color: #0e0e0e; /* Color más suave para los checkboxes */
+    padding: 10px 9px;
+    color: #0e0e0e;
+    overflow-y: auto;
+    overflow-x: hidden;
+    z-index: 10;
+    box-shadow: 2px 0 8px rgba(0, 0, 0, 0.10);
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    box-sizing: border-box;
+}
 
+.city-checkboxes {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    /* Sin max-height ni overflow-y: todos los distritos visibles */
+    overflow-x: hidden;
+    border: 1px solid #eee;
+    border-radius: 4px;
+    padding: 4px;
+    width: 100%;
+    box-sizing: border-box;
 }
-h4{
-    margin-left: 15px;
-    margin-top: 10px;
-}
+
 .city-checkboxes label {
-    display: block; /* Asegura que cada etiqueta esté en una nueva línea */
-    margin-bottom: -7px; /* Reduce el espacio entre las etiquetas */
-    margin-left: 5px;
+    display: flex !important;
+    align-items: center;
+    margin-bottom: 0 !important;
+    margin-left: 0;
+    font-size: 0.78em;
+    width: 100%;
+    cursor: pointer;
+    padding: 3px 2px;
+    border-radius: 3px;
+    transition: background 0.15s;
+    white-space: normal;
+    word-break: break-word;
+    box-sizing: border-box;
+    overflow: hidden;
 }
 
+.city-checkboxes label:hover {
+    background-color: #f0f7f4;
+}
+
+.city-checkboxes input[type="radio"] {
+    margin-right: 5px;
+    flex-shrink: 0;
+    min-width: 13px;
+}
+
+/* Inputs de fecha dentro del dashboard - no desbordarse */
+#dashboard input[type="date"] {
+    max-width: 100%;
+    box-sizing: border-box;
+    overflow: hidden;
+}
 
 
 #view-radial {
     height: 47%;
     width: 32.4%;
-    position: absolute; /* Cambia a posición absoluta */
-    top: 1%; /* Ajusta la posición vertical */
-    left: 65.34%; /* Ajusta la posición horizontal */    
-    background-color: #fff; /* Fondo blanco para la sección de visualización */
+    position: absolute;
+    top: 1%;
+    left: calc(var(--sidebar) + 65.4%);
+    background-color: #fff;
     border: 1px solid #333;
     border-radius: 3px;
-    padding: 15px; /* Espaciado interno */
+    padding: 15px;
 }
 
 #correlation {
     height: 43.5%;
     width: 19%;
-    position: absolute; /* Cambia a posición absoluta */
-    top: 51.9%; /* Ajusta la posición vertical */
-    left: 0.5%; /* Ajusta la posición horizontal */
-    background-color: #fff; /* Fondo blanco para la sección de visualización */
+    position: absolute;
+    top: 51.9%;
+    left: calc(var(--sidebar) + 0.5%);
+    background-color: #fff;
     border: 1px solid #333;
     border-radius: 3px;
-    padding: 15px; /* Espaciado interno */
+    padding: 15px;
 }
+
 #evolution {
     height: 43.5%;
     width: 30.5%;
-    position: absolute; /* Cambia a posición absoluta */
-    top: 51.9%; /* Ajusta la posición vertical */
-    left: 67.3%; /* Ajusta la posición horizontal */
-    background-color: #fff; /* Fondo blanco para la sección de visualización */
+    position: absolute;
+    top: 51.9%;
+    left: calc(var(--sidebar) + 67.3%);
+    background-color: #fff;
     border: 1px solid #333;
     border-radius: 3px;
-    padding: 15px; /* Espaciado interno */
+    padding: 15px;
 }
 
 #serie-temporal {
     height: 43.5%;
     width: 44%;
-    position: absolute; /* Cambia a posición absoluta */
-    top: 51.9%; /* Ajusta la posición vertical */
-    left: 21.44%; /* Ajusta la posición horizontal */
-    background-color: #fff; /* Fondo blanco para la sección de visualización */
+    position: absolute;
+    top: 51.9%;
+    left: calc(var(--sidebar) + 21.4%);
+    background-color: #fff;
     border: 1px solid #333;
     border-radius: 3px;
-    padding: 15px; /* Espaciado interno */
+    padding: 15px;
 }
+
 .city-selector,
 .view-radial h3 {
-    font-weight: bold; /* Texto en negrita */
-    margin-bottom: 10px; /* Espacio entre elementos */
-    font-family: 'Arial', sans-serif; /* Cambia la fuente a Arial */
-    color: #333; /* Color del texto */
-    text-shadow: 1px 1px 1px rgba(0, 0, 0, 0.1); /* Sombra sutil en el texto */
-    
+    font-weight: bold;
+    /* Texto en negrita */
+    margin-bottom: 10px;
+    /* Espacio entre elementos */
+    font-family: 'Arial', sans-serif;
+    /* Cambia la fuente a Arial */
+    color: #333;
+    /* Color del texto */
+    text-shadow: 1px 1px 1px rgba(0, 0, 0, 0.1);
+    /* Sombra sutil en el texto */
+
 }
 
 label {
-    display: block; /* Hace que cada label ocupe toda la línea */
-    margin-bottom: 5px; /* Espaciado entre checkboxes */
+    display: block;
+    /* Hace que cada label ocupe toda la línea */
+    margin-bottom: 5px;
+    /* Espaciado entre checkboxes */
 }
 
 .options-chek label {
-    font-size: 0.9em; /* Cambia el tamaño de la fuente a más pequeño */
-    color: #000000; /* Color más suave para los checkboxes */
-    font-weight: 550; /* Hace el texto un poco más grueso que el normal */
+    font-size: 0.9em;
+    /* Cambia el tamaño de la fuente a más pequeño */
+    color: #000000;
+    /* Color más suave para los checkboxes */
+    font-weight: 550;
+    /* Hace el texto un poco más grueso que el normal */
 
 }
+
 .options-chek input[type="checkbox"] {
-    margin-right: 5px; /* Espacio entre checkbox y label */
-    transform: scale(1.2); /* Aumenta el tamaño del checkbox */
+    margin-right: 5px;
+    /* Espacio entre checkbox y label */
+    transform: scale(1.2);
+    /* Aumenta el tamaño del checkbox */
 }
+
 .options-chek {
-    margin-top: 30px; /* Ajusta el valor según sea necesario */
+    margin-top: 30px;
+    /* Ajusta el valor según sea necesario */
 }
-#chart-view-radial{
+
+#chart-view-radial {
     height: 46.4%;
     width: 35%;
-    position: absolute; /* Cambia a posición absoluta */
-    top: -4%; /* Ajusta la posición vertical */
-    left: 20%; /* Ajusta la posición horizontal */
+    position: absolute;
+    /* Cambia a posición absoluta */
+    top: -4%;
+    /* Ajusta la posición vertical */
+    left: 20%;
+    /* Ajusta la posición horizontal */
     border-radius: 8px;
-    padding: 15px; /* Espaciado interno */
-    
+    padding: 15px;
+    /* Espaciado interno */
+
 
 }
 
@@ -141,64 +205,104 @@ label {
     width: 27.2%;
     position: absolute;
     top: 1%;
-    left: 36.23%;
+    left: 45.71%;
     background-color: #fff;
     border: 1px solid #333;
     border-radius: 3px;
     padding: 15px;
-    overflow: hidden; /* Para evitar que el contenido desborde */
+    overflow: hidden;
+    /* Para evitar que el contenido desborde */
 }
 
 .title-banner {
-    position: absolute; /* Para posicionar en relación al contenedor padre */
-    top: 0; /* Alinear al borde superior */
-    left: 0; /* Alinear al borde izquierdo */
-    background-color: #f0f0f0; /* Color de fondo */
-    color: #333; /* Color del texto */
-    padding: 8px 20px 8px 10px; /* Espaciado interno */
-    font-weight: bold; /* Texto en negrita */
-    font-size: 15px; /* Tamaño de la fuente */
+    position: absolute;
+    /* Para posicionar en relación al contenedor padre */
+    top: 0;
+    /* Alinear al borde superior */
+    left: 0;
+    /* Alinear al borde izquierdo */
+    background-color: #f0f0f0;
+    /* Color de fondo */
+    color: #333;
+    /* Color del texto */
+    padding: 8px 20px 8px 10px;
+    /* Espaciado interno */
+    font-weight: bold;
+    /* Texto en negrita */
+    font-size: 15px;
+    /* Tamaño de la fuente */
     display: inline-block;
-    clip-path: polygon(0 0, 100% 0, 90% 100%, 0 100%); /* Forma del título con borde diagonal */
-    width: 30%; /* Ancho del título */
-    z-index: 1; /* Asegura que quede siempre por encima */
-    pointer-events: none; /* Evita interferencias al interactuar con otros elementos */
+    clip-path: polygon(0 0, 100% 0, 90% 100%, 0 100%);
+    /* Forma del título con borde diagonal */
+    width: 30%;
+    /* Ancho del título */
+    z-index: 1;
+    /* Asegura que quede siempre por encima */
+    pointer-events: none;
+    /* Evita interferencias al interactuar con otros elementos */
 }
+
 .title-banner2 {
-    position: absolute; /* Para posicionar en relación al contenedor padre */
-    top: 0; /* Alinear al borde superior */
-    left: 0; /* Alinear al borde izquierdo */
-    background-color: #f0f0f0; /* Color de fondo */
-    color: #333; /* Color del texto */
-    padding: 8px 20px 8px 10px; /* Espaciado interno */
-    font-weight: bold; /* Texto en negrita */
-    font-size: 15px; /* Tamaño de la fuente */
+    position: absolute;
+    /* Para posicionar en relación al contenedor padre */
+    top: 0;
+    /* Alinear al borde superior */
+    left: 0;
+    /* Alinear al borde izquierdo */
+    background-color: #f0f0f0;
+    /* Color de fondo */
+    color: #333;
+    /* Color del texto */
+    padding: 8px 20px 8px 10px;
+    /* Espaciado interno */
+    font-weight: bold;
+    /* Texto en negrita */
+    font-size: 15px;
+    /* Tamaño de la fuente */
     display: inline-block;
-    clip-path: polygon(0 0, 100% 0, 90% 100%, 0 100%); /* Forma del título con borde diagonal */
-    width: 40%; /* Ancho del título */
-    z-index: 1; /* Asegura que quede siempre por encima */
-    pointer-events: none; /* Evita interferencias al interactuar con otros elementos */
-    
+    clip-path: polygon(0 0, 100% 0, 90% 100%, 0 100%);
+    /* Forma del título con borde diagonal */
+    width: 40%;
+    /* Ancho del título */
+    z-index: 1;
+    /* Asegura que quede siempre por encima */
+    pointer-events: none;
+    /* Evita interferencias al interactuar con otros elementos */
+
 }
+
 .title-banner3 {
-    position: absolute; /* Para posicionar en relación al contenedor padre */
-    top: 0; /* Alinear al borde superior */
-    left: 0; /* Alinear al borde izquierdo */
-    background-color: #f0f0f0; /* Color de fondo */
-    color: #333; /* Color del texto */
-    padding: 8px 20px 8px 10px; /* Espaciado interno */
-    font-weight: bold; /* Texto en negrita */
-    font-size: 15px; /* Tamaño de la fuente */
+    position: absolute;
+    /* Para posicionar en relación al contenedor padre */
+    top: 0;
+    /* Alinear al borde superior */
+    left: 0;
+    /* Alinear al borde izquierdo */
+    background-color: #f0f0f0;
+    /* Color de fondo */
+    color: #333;
+    /* Color del texto */
+    padding: 8px 20px 8px 10px;
+    /* Espaciado interno */
+    font-weight: bold;
+    /* Texto en negrita */
+    font-size: 15px;
+    /* Tamaño de la fuente */
     display: inline-block;
-    clip-path: polygon(0 0, 100% 0, 90% 100%, 0 100%); /* Forma del título con borde diagonal */
-    width: 20%; /* Ancho del título */
-    z-index: 0; /* Asegura que quede siempre por encima */
-    pointer-events: none; /* Evita interferencias al interactuar con otros elementos */
+    clip-path: polygon(0 0, 100% 0, 90% 100%, 0 100%);
+    /* Forma del título con borde diagonal */
+    width: 20%;
+    /* Ancho del título */
+    z-index: 0;
+    /* Asegura que quede siempre por encima */
+    pointer-events: none;
+    /* Evita interferencias al interactuar con otros elementos */
 }
 
 
 .fechas-rad {
-    margin-top: 15px; /* Ajusta el valor según cuánto espacio quieras agregar */
+    margin-top: 15px;
+    /* Ajusta el valor según cuánto espacio quieras agregar */
     margin-left: 10%;
 }
 
@@ -206,23 +310,28 @@ label[for="fecha-inicio"],
 label[for="fecha-fin"],
 #fecha-inicio,
 #fecha-fin {
-    display: block; /* Mantén estos en líneas separadas */
+    display: block;
+    /* Mantén estos en líneas separadas */
     margin-top: 8px;
     margin-left: 10px;
 
 }
 
 label input[type="checkbox"] {
-    display: inline; /* Asegura que el checkbox esté en línea */
+    display: inline;
+    /* Asegura que el checkbox esté en línea */
     margin-top: 8px;
     margin-left: 10px;
 
 }
 
 label#checkbox-container {
-    display: inline-flex; /* Coloca el contenedor en una línea */
-    align-items: center; /* Alinea el checkbox y el texto verticalmente */
-    margin-top: 10px; /* Espacio superior opcional */
+    display: inline-flex;
+    /* Coloca el contenedor en una línea */
+    align-items: center;
+    /* Alinea el checkbox y el texto verticalmente */
+    margin-top: 10px;
+    /* Espacio superior opcional */
 }
 
 /* Estilos para el contenedor principal del panel de selección */
@@ -244,35 +353,50 @@ label#checkbox-container {
 
 /* Ocultar el contenedor de atribución que incluye el logo */
 .gm-style .gm-style-cc {
-    display: none !important; /* Forzar ocultación */
+    display: none !important;
+    /* Forzar ocultación */
 }
 
 
 #legend {
     display: flex;
-    flex-direction: column; /* Asegura que los elementos estén en una columna */
-    font-family: Arial, sans-serif; /* Fuente de la leyenda */
-    color: #000000; /* Color más suave para los checkboxes */
-    align-items: flex-start; /* Alinea todo el contenido hacia la izquierda */
-    margin-left: 0; /* Asegura que esté lo más a la izquierda posible */
-    font-size: 0.9em; /* Aumenta el tamaño de la letra */
+    flex-direction: column;
+    /* Asegura que los elementos estén en una columna */
+    font-family: Arial, sans-serif;
+    /* Fuente de la leyenda */
+    color: #000000;
+    /* Color más suave para los checkboxes */
+    align-items: flex-start;
+    /* Alinea todo el contenido hacia la izquierda */
+    margin-left: 0;
+    /* Asegura que esté lo más a la izquierda posible */
+    font-size: 0.9em;
+    /* Aumenta el tamaño de la letra */
     margin-top: 20px;
 
 
 }
+
 .legend-item {
-    display: flex; /* Usar flexbox para alinear el cuadro de color y el texto */
-    align-items: center; /* Centrar verticalmente el contenido */
-    margin-left: 10px; /* Espacio a la derecha de cada elemento */
+    display: flex;
+    /* Usar flexbox para alinear el cuadro de color y el texto */
+    align-items: center;
+    /* Centrar verticalmente el contenido */
+    margin-left: 10px;
+    /* Espacio a la derecha de cada elemento */
     margin-top: 5px;
 }
 
 .color-box {
-    width: 21px; /* Ancho del cuadrado de color */
-    height: 15px; /* Alto del cuadrado de color */
-    margin-right: 15px; /* Espacio entre el cuadrado y el texto */
+    width: 21px;
+    /* Ancho del cuadrado de color */
+    height: 15px;
+    /* Alto del cuadrado de color */
+    margin-right: 15px;
+    /* Espacio entre el cuadrado y el texto */
     border-radius: 20%;
-    opacity: 0.6; /* Opacidad del cuadrado de color */
+    opacity: 0.6;
+    /* Opacidad del cuadrado de color */
 }
 
 
@@ -280,55 +404,72 @@ label#checkbox-container {
 .options-chek-correlation {
     display: flex;
     flex-wrap: wrap;
-    gap: 20px; /* Espacio entre los grupos */
+    gap: 20px;
+    /* Espacio entre los grupos */
 }
 
 .meteorological {
     display: flex;
     flex-wrap: wrap;
-    gap: 10px; /* Espacio entre los checkbox */
+    gap: 10px;
+    /* Espacio entre los checkbox */
     margin-top: -10px;
 }
+
 .contaminants {
     display: flex;
     flex-wrap: wrap;
-    gap: 1px; /* Espacio entre los checkbox */
+    gap: 1px;
+    /* Espacio entre los checkbox */
     margin-top: -20px;
 }
 
-.contaminants label, .meteorological label {
+.contaminants label,
+.meteorological label {
     display: auto;
-    align-items: center; /* Alinea verticalmente el texto y el checkbox */
-    font-size: 9.7px; /* Reducir el tamaño del texto */
+    align-items: center;
+    /* Alinea verticalmente el texto y el checkbox */
+    font-size: 9.7px;
+    /* Reducir el tamaño del texto */
 }
 
-.contaminants label input, .meteorological label input {
-    margin-right: px; /* Reduce el espacio entre el texto y el checkbox */
-    transform: scale(0.9); /* Reduce el tamaño del checkbox ligeramente */
+.contaminants label input,
+.meteorological label input {
+    margin-right: px;
+    /* Reduce el espacio entre el texto y el checkbox */
+    transform: scale(0.9);
+    /* Reduce el tamaño del checkbox ligeramente */
 }
 
 .contaminants {
-    flex: 1 1 48%; /* Ocupa el 48% del ancho del contenedor y puede reducirse si es necesario */
+    flex: 1 1 48%;
+    /* Ocupa el 48% del ancho del contenedor y puede reducirse si es necesario */
     margin-top: 87%;
     justify-content: center;
 
 }
 
 .meteorological {
-    flex: 1 1 48%; /* Ocupa el 48% del ancho del contenedor y puede reducirse si es necesario */
+    flex: 1 1 48%;
+    /* Ocupa el 48% del ancho del contenedor y puede reducirse si es necesario */
     justify-content: center;
 
 }
 
-#chart-view-dendrogram{
+#chart-view-dendrogram {
     height: 20%;
     width: 20%;
-    position: absolute; /* Cambia a posición absoluta */
-    top: -1%; /* Ajusta la posición vertical */
-    left: 4%; /* Ajusta la posición horizontal */
+    position: absolute;
+    /* Cambia a posición absoluta */
+    top: -1%;
+    /* Ajusta la posición vertical */
+    left: 4%;
+    /* Ajusta la posición horizontal */
     border-radius: 8px;
-    padding: 15px; /* Espaciado interno */
+    padding: 15px;
+    /* Espaciado interno */
 }
+
 .tooltip {
     position: absolute;
     background: rgba(0, 0, 0, 0.7);
@@ -341,7 +482,8 @@ label#checkbox-container {
 
 #correlation-bar-container {
     position: absolute;
-    right: 15px; /* Ajusta la posición */
+    right: 15px;
+    /* Ajusta la posición */
     top: 100px;
     height: 170px;
     width: 16px;
@@ -354,7 +496,8 @@ label#checkbox-container {
 }
 
 #correlation-gradient {
-    background: linear-gradient(to top, blue, red); /* De rojo a azul */
+    background: linear-gradient(to top, blue, red);
+    /* De rojo a azul */
     height: 100%;
 }
 
@@ -375,6 +518,7 @@ label#checkbox-container {
 #positive-label {
     bottom: 0;
 }
+
 .selected {
     stroke: rgb(255, 0, 0);
     stroke-width: 3;
@@ -387,7 +531,8 @@ label#checkbox-container {
     gap: 15px;
     align-items: flex-start;
     margin-left: 10px;
-    margin-top: 5%; /* Reducido para subir los filtros */
+    margin-top: 5%;
+    /* Reducido para subir los filtros */
 }
 
 .filter-row {
@@ -406,7 +551,8 @@ label#checkbox-container {
     display: flex;
     align-items: center;
     gap: 5px;
-    align-self: flex-start; /* Asegura que los botones suban */
+    align-self: flex-start;
+    /* Asegura que los botones suban */
 }
 
 .filter-item label {
@@ -445,22 +591,30 @@ button:hover {
 
 .filter-row {
     display: flex;
-    align-items: center; /* Alinear verticalmente los botones */
-    gap: 8px; /* Reducir el espacio entre botones */
-    margin-bottom: -10px; /* Espacio más pequeño entre filas */
+    align-items: center;
+    /* Alinear verticalmente los botones */
+    gap: 8px;
+    /* Reducir el espacio entre botones */
+    margin-bottom: -10px;
+    /* Espacio más pequeño entre filas */
 }
 
-.filter-item-cluster button, 
+.filter-item-cluster button,
 .filter-item-cluster select,
 .filter-item button {
-    margin: 1px 0; /* Reduce el margen superior e inferior */
-    padding: 3px 8px; /* Reducir padding */
-    font-size: 10px; /* Hacer texto más pequeño */
-    border-radius: 3px; /* Esquinas más pequeñas */
+    margin: 1px 0;
+    /* Reduce el margen superior e inferior */
+    padding: 3px 8px;
+    /* Reducir padding */
+    font-size: 10px;
+    /* Hacer texto más pequeño */
+    border-radius: 3px;
+    /* Esquinas más pequeñas */
 }
 
 select {
-    padding: 3px 5px; /* Reducir tamaño del select */
+    padding: 3px 5px;
+    /* Reducir tamaño del select */
     font-size: 10px;
 }
 
@@ -543,18 +697,21 @@ select {
 
 .filter-item-options {
     display: flex;
-    gap: 5px; /* Espacio entre los radio buttons */
+    gap: 5px;
+    /* Espacio entre los radio buttons */
 }
 
 .filter-item-options label {
-    font-size: 11px; /* Tamaño de texto más pequeño */
+    font-size: 11px;
+    /* Tamaño de texto más pequeño */
     display: flex;
     align-items: center;
     gap: 3px;
 }
 
 .filter-item-options input[type="radio"] {
-    transform: scale(0.8); /* Hace más pequeños los radios */
+    transform: scale(0.8);
+    /* Hace más pequeños los radios */
     cursor: pointer;
 }
 
@@ -564,10 +721,14 @@ select {
 #distribucion-global {
     height: 120.7%;
     width: 26%;
-    position: absolute; /* Cambia a posición absoluta */
-    top: 1%; /* Ajusta la posición vertical */
-    left: 99.65%; /* Ajusta la posición horizontal */
-    background-color: #fff; /* Fondo blanco para la sección de visualización */
+    position: absolute;
+    /* Cambia a posición absoluta */
+    top: 1%;
+    /* Ajusta la posición vertical */
+    left: 109.15%;
+    /* Ajusta la posición horizontal */
+    background-color: #fff;
+    /* Fondo blanco para la sección de visualización */
     border: 1px solid #333;
     border-radius: 3px;
 }
@@ -579,28 +740,35 @@ select {
     margin-top: 10px;
     justify-content: center;
 }
+
 .controls-container label {
     display: flex;
     align-items: center;
     gap: 5px;
 }
 
-#distribucion-global-graph1, #distribucion-global-graph2, #distribucion-global-graph3 {
+#distribucion-global-graph1,
+#distribucion-global-graph2,
+#distribucion-global-graph3 {
     margin-bottom: -20px;
     margin-top: -10px;
     height: 97.7%;
     width: 30.5%;
     position: relative;
     top: 0;
-    margin-left: 30px; /* Ajustar el margen derecho para alineación */
+    margin-left: 30px;
+    /* Ajustar el margen derecho para alineación */
 }
+
 .graph-title {
     font-size: 16px;
     font-weight: bold;
     margin-top: 20px;
     margin-bottom: 10px;
-    text-align: left; /* Alinear el texto a la derecha */
-    margin-left: 30px; /* Ajustar el margen derecho para alineación */
+    text-align: left;
+    /* Alinear el texto a la derecha */
+    margin-left: 30px;
+    /* Ajustar el margen derecho para alineación */
 }
 
 
@@ -609,56 +777,76 @@ select {
 #series-temporales-global {
     height: 145.5%;
     width: 71.5%;
-    position: absolute; /* Cambia a posición absoluta */
-    top: 1%; /* Ajusta la posición vertical */
-    left: 173.34%; /* Ajusta la posición horizontal */
-    background-color: #fff; /* Fondo blanco para la sección de visualización */
+    position: absolute;
+    /* Cambia a posición absoluta */
+    top: 1%;
+    /* Ajusta la posición vertical */
+    left: 187.5%;
+    /* Ajusta la posición horizontal */
+    background-color: #fff;
+    /* Fondo blanco para la sección de visualización */
     border: 1px solid #333;
     border-radius: 3px;
-    padding: 15px; /* Espaciado interno */
+    padding: 15px;
+    /* Espaciado interno */
 }
 
 .selected {
-    stroke: rgb(25, 0, 252) !important;  /* Cambia el borde a rojo */
-    stroke-width: 4px !important; /* Hace el borde más grueso */
-    opacity: 0.8; /* Hace la barra un poco más visible */
+    stroke: rgb(25, 0, 252) !important;
+    /* Cambia el borde a rojo */
+    stroke-width: 4px !important;
+    /* Hace el borde más grueso */
+    opacity: 0.8;
+    /* Hace la barra un poco más visible */
 }
 
 
-#distribucion-espacio-temporal
-{
-    height: 103%;
-    width: 45.5%;
-    position: absolute; /* Cambia a posición absoluta */
-    top: 1%; /* Ajusta la posición vertical */
-    left: 125.95%; /* Ajusta la posición horizontal */
-    background-color: #fff; /* Fondo blanco para la sección de visualización */
+#temporal-container-wrapper {
+    position: absolute;
+    top: 1%;
+    left: 135.50%;
+    width: 50%;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+#distribucion-espacio-temporal {
+    height: auto;
+    min-height: 400px;
+    background-color: #fff;
     border: 1px solid #333;
     border-radius: 3px;
-    padding: 15px; /* Espaciado interno */
+    padding: 15px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    width: 100%;
+    position: relative;
+    /* Para que el title-banner se posicione aquí */
 }
 
-#distribucion-por-periodo   
-{
-    height: 66.5%;
-    width: 45.5%;
-    position: absolute; /* Cambia a posición absoluta */
-    top: 108%; /* Ajusta la posición vertical */
-    left: 125.95%; /* Ajusta la posición horizontal */
-    background-color: #fff; /* Fondo blanco para la sección de visualización */
+#distribucion-por-periodo {
+    height: auto;
+    min-height: 400px;
+    background-color: #fff;
     border: 1px solid #333;
     border-radius: 3px;
-    padding: 15px; /* Espaciado interno */
+    padding: 15px;
+    overflow-y: auto;
+    width: 100%;
+    margin-top: -10px;
+
+    position: relative;
+    /* Para que el title-banner se posicione aquí */
 }
 
-#distribucion-espacio-temporal-graph
-{
-    height: 120%;
+#distribucion-espacio-temporal-graph {
+    height: auto;
     width: 100%;
     position: relative;
     top: 0;
-    margin-left: 20px; /* Ajustar el margen derecho para alineación */
-    margin-top: -618px;
+    margin-left: 20px;
+    margin-top: 20px;
 }
 
 #distribucion-por-periodo-graph {
@@ -667,8 +855,10 @@ select {
     position: relative;
     top: 0;
     margin-top: 20px;
-    overflow-x: hidden; /* Evita el scroll horizontal */
-    max-width: 100%; /* Asegura que el contenedor no sobrepase su padre */
+    overflow-x: hidden;
+    /* Evita el scroll horizontal */
+    max-width: 100%;
+    /* Asegura que el contenedor no sobrepase su padre */
 }
 
 
@@ -684,15 +874,19 @@ select {
     margin-left: 100px;
 
 }
-#end-date{
+
+#end-date {
     margin-left: 20px;
 }
-.title-date{
+
+.title-date {
     margin-left: 10px;
     font-size: 14px;
-    font-weight: bold; /* Texto en negrita */
+    font-weight: bold;
+    /* Texto en negrita */
 
 }
+
 #apply-date-filter:hover {
     background-color: #0056b3;
 }
@@ -719,7 +913,8 @@ select {
 
 .column {
     flex: 1;
-    min-width: 400px; /* Ajusta según el ancho de tus gráficas */
+    min-width: 400px;
+    /* Ajusta según el ancho de tus gráficas */
 }
 
 .column h3 {
@@ -747,56 +942,81 @@ select {
 
 
 .tooltip22 {
-    visibility: hidden; /* Oculta el tooltip por defecto */
-    width: 50px; /* Ancho del tooltip */
-    background-color: #333; /* Fondo oscuro */
-    color: #fff; /* Texto blanco */
-    text-align: center; /* Centra el texto */
-    border-radius: 8px; /* Bordes redondeados */
-    padding: 6px 10px; /* Espaciado interno */
-    position: absolute; /* Posiciona respecto al color-box */
-    z-index: 1; /* Asegura que esté por encima */
-    bottom: 100%; /* Aparece arriba del cuadro */
-    left: 50%; /* Centrado horizontalmente */
-    transform: translateX(-50%); /* Ajuste fino para centrar */
-    opacity: 0; /* Para la animación */
-    transition: opacity 0.3s ease; /* Suaviza la aparición */
-    font-size: 12px; /* Tamaño del texto */
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2); /* Sombra sutil */
+    visibility: hidden;
+    /* Oculta el tooltip por defecto */
+    width: 50px;
+    /* Ancho del tooltip */
+    background-color: #333;
+    /* Fondo oscuro */
+    color: #fff;
+    /* Texto blanco */
+    text-align: center;
+    /* Centra el texto */
+    border-radius: 8px;
+    /* Bordes redondeados */
+    padding: 6px 10px;
+    /* Espaciado interno */
+    position: absolute;
+    /* Posiciona respecto al color-box */
+    z-index: 1;
+    /* Asegura que esté por encima */
+    bottom: 100%;
+    /* Aparece arriba del cuadro */
+    left: 50%;
+    /* Centrado horizontalmente */
+    transform: translateX(-50%);
+    /* Ajuste fino para centrar */
+    opacity: 0;
+    /* Para la animación */
+    transition: opacity 0.3s ease;
+    /* Suaviza la aparición */
+    font-size: 12px;
+    /* Tamaño del texto */
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+    /* Sombra sutil */
 }
 
 .color-box:hover .tooltip22 {
-    visibility: visible; /* Muestra el tooltip al pasar el mouse */
-    opacity: 1; /* Hace visible el texto */
+    visibility: visible;
+    /* Muestra el tooltip al pasar el mouse */
+    opacity: 1;
+    /* Hace visible el texto */
 }
 
 
 
 
 .filters-container {
-    width: 400px; /* Reducido de 500px para forzar más cercanía */
+    width: 400px;
+    /* Reducido de 500px para forzar más cercanía */
     padding: 20px;
     margin-top: 5px;
-    margin-left: 30px; /* Espacio a la izquierda */
+    margin-left: 30px;
+    /* Espacio a la izquierda */
     background-color: #f5f5f5;
     border-radius: 8px;
     box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
     display: grid;
-    grid-template-columns: 1fr 1fr; /* Dos columnas de igual ancho */
-    gap: 10px 0; /* Reducido de 15px a 10px entre filas, 0px entre columnas */
+    grid-template-columns: 1fr 1fr;
+    /* Dos columnas de igual ancho */
+    gap: 10px 0;
+    /* Reducido de 15px a 10px entre filas, 0px entre columnas */
 }
 
 /* Contenedor para cada fila (botón + select) */
-.filters-container > div {
+.filters-container>div {
     display: flex;
     align-items: center;
-    gap: 4px; /* Reducido de 8px a 4px para juntar más botón y select */
-    margin: 0; /* Eliminamos márgenes que puedan interferir */
+    gap: 4px;
+    /* Reducido de 8px a 4px para juntar más botón y select */
+    margin: 0;
+    /* Eliminamos márgenes que puedan interferir */
 }
 
 /* Estilo para los botones */
 .filters-container button {
-    padding: 4px 12px; /* Reducido de 16px a 12px en ancho */
+    padding: 4px 12px;
+    /* Reducido de 16px a 12px en ancho */
     background-color: #4CAF50;
     color: white;
     border: none;
@@ -804,7 +1024,8 @@ select {
     cursor: pointer;
     font-size: 12px;
     transition: background-color 0.3s;
-    margin: 0; /* Eliminamos márgenes */
+    margin: 0;
+    /* Eliminamos márgenes */
 }
 
 /* Hover de los botones */
@@ -815,13 +1036,15 @@ select {
 /* Estilo para los select */
 .filters-container select {
     padding: 4px;
-    width: 90px; /* Reducido de 100px para compactar más */
+    width: 90px;
+    /* Reducido de 100px para compactar más */
     border: 1px solid #ddd;
     border-radius: 4px;
     background-color: white;
     font-size: 12px;
     cursor: pointer;
-    margin: 0; /* Eliminamos márgenes */
+    margin: 0;
+    /* Eliminamos márgenes */
 }
 
 /* Estilo para select deshabilitado */

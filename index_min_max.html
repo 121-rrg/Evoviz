@@ -1,118 +1,62 @@
-
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>EvoAir Pollution</title>
     <link rel="stylesheet" href="static/styles.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
 </head>
+
 <body>
     <div id="map"></div>
-    <div id="dashboard" class="city-selection-panel">
-        <h4 class="h4-let">Distritos: </h4>
-        <div style="position: relative; top: -10px;">
-            <span style="
-                display: inline-block; 
-                width: 0; 
-                height: 0; 
-                border-left: 6px solid transparent; 
-                border-right: 6px solid transparent; 
-                border-bottom: 12px solid #2D6A4F;  
-                position: relative;
-            ">
-                <span style="
-                    position: absolute; 
-                    top: -2px; 
-                    left: -8px; 
-                    width: 0; 
-                    height: 0; 
-                    border-left: 8px solid transparent; 
-                    border-right: 8px solid transparent; 
-                    border-bottom: 14px solid black; 
-                    z-index: -1;">
-                </span>
-            </span> 
-            Urban 
-            <span style="
-                display: inline-block;
-                width: 10px;
-                height: 10px;
-                background-color: blue;
-                border: 1px solid black; /* Borde negro */
-                margin-right: 5px;
-            ">
-            </span> 
-            Rural
-            <br>
-            <span style="
-                display: inline-block;
-                width: 20px;
-                height: 20px;
-                background: #FFB347;
-                clip-path: polygon(50% 15%, 61% 40%, 87% 40%, 67% 60%, 74% 85%, 50% 70%, 26% 85%, 33% 60%, 13% 40%, 39% 40%);
-                position: relative;
-            ">
-                <span style="
-                    position: absolute; 
-                    top: -2px; 
-                    left: -2px; 
-                    width: 24px; 
-                    height: 24px; 
-                    background: #FFB347; 
-                    clip-path: polygon(50% 15%, 61% 40%, 87% 40%, 67% 60%, 74% 85%, 50% 70%, 26% 85%, 33% 60%, 13% 40%, 39% 40%);
-                    z-index: -1;">
-                </span>
-            </span> 
-            Intermedia
-        </div>
-        
-        
-        <div id="city-checkboxes" class="city-checkboxes">
-            <label><input type="radio" name="city" value="Data_Aotizhongxin.csv" data-lat="39.9829" data-lng="116.3974"> <span style="display: inline-block; width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-bottom: 12px solid #2D6A4F;"></span>
-                Aotizhongxin</label>
-            <label><input type="radio" name="city" value="Data_Changping.csv" data-lat="40.21965" data-lng="116.2255"> <span style="display: inline-block; width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-bottom: 12px solid #2D6A4F;"></span> Changping</label>
-            <label><input type="radio" name="city" value="Data_Dongsi.csv" data-lat="39.9296" data-lng="116.4170"> <span style="display: inline-block; width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-bottom: 12px solid #2D6A4F;"></span> Dongsi</label>
-            <label><input type="radio" name="city" value="Data_Guanyuan.csv" data-lat="39.9293" data-lng="116.3399"> <span style="display: inline-block; width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-bottom: 12px solid #2D6A4F;"></span> Guanyuan</label>
-            <label><input type="radio" name="city" value="Data_Gucheng.csv" data-lat="39.9144" data-lng="116.1841"> <span style="display: inline-block; width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-bottom: 12px solid #2D6A4F;"></span> Gucheng</label>
-            <label><input type="radio" name="city" value="Data_Nongzhanguan.csv" data-lat="39.8040" data-lng="116.4612"> <span style="display: inline-block; width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-bottom: 12px solid #2D6A4F;"></span> Nongzhanguan</label>
-            <label><input type="radio" name="city" value="Data_Tiantan.csv" data-lat="39.8865" data-lng="116.4074"> <span style="display: inline-block; width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-bottom: 12px solid #2D6A4F;"></span> Tiantan</label>
-            <label><input type="radio" name="city" value="Data_Wanliu.csv" data-lat="39.9875" data-lng="116.2873"> <span style="display: inline-block; width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-bottom: 12px solid #2D6A4F;"></span> Wanliu</label>
-            <label><input type="radio" name="city" value="Data_Wanshouxigong.csv" data-lat="39.8785" data-lng="116.3526"> <span style="display: inline-block; width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-bottom: 12px solid #2D6A4F;"></span> Wanshouxigong</label>
-            <label><input type="radio" name="city" value="Data_Shunyi.csv" data-lat="40.1270" data-lng="116.6552"> <span style="display: inline-block; width: 10px; height: 10px; background-color: blue; margin-right: 5px;"></span>
-                Shunyi</label>
-            <label><input type="radio" name="city" value="Data_Huairou.csv" data-lat="40.3288" data-lng="116.6280"> <span style="display: inline-block; width: 10px; height: 10px; background-color: blue; margin-right: 5px;"></span>
-                Huairou</label>
-            <label><input type="radio" name="city" value="Data_Dingling.csv" data-lat="40.2925" data-lng="116.2204"> 
-            <span style="
-                display: inline-block;
-                width: 0;
-                height: 0;
-                background-color: transparent;
-                clip-path: polygon(50% 15%, 61% 40%, 87% 40%, 67% 60%, 74% 85%, 50% 70%, 26% 85%, 33% 60%, 13% 40%, 39% 40%);
-                width: 20px;
-                height: 20px;
-                margin-left: -5px; /* Ajusta este valor según lo que necesites */
-                margin-bottom: -3px;
-                background: #FFB347;">
-                
-            </span>
-             Dingling</label>
-        </div>
-        <div class="fechas-rad"></div>
-            <!-- <h4 for="city">Selecciona una Fecha:</h4> -->
+    <div id="dashboard">
 
-            <label for="fecha-inicio">Fecha de Inicio:</label>
-            <input type="date" id="fecha-inicio" min="2013-03-01" max="2017-02-28">
-            
-            <label for="fecha-fin">Fecha de Fin:</label>
-            <input type="date" id="fecha-fin" min="2013-03-01" max="2017-02-28">
-            
-            <label>
-                <input type="checkbox" id="visualizar-todo" > Todas las fechas
-            </label>
-            
-            <!-- <div id="fecha-rango"></div> Aquí se mostrará el rango de fechas elegido -->
+        <!-- Selector de país -->
+        <div style="margin-bottom:8px; padding-bottom:8px; border-bottom:1px solid #e0e0e0; flex-shrink:0;">
+            <label
+                style="display:block; font-size:0.72em; font-weight:700; color:#2D6A4F; text-transform:uppercase; margin-bottom:4px;">🌍
+                País</label>
+            <select id="country-select"
+                style="width:100%; padding:4px 3px; border-radius:4px; border:1px solid #2D6A4F; font-size:0.82em; background:#f9f9f9; cursor:pointer; box-sizing:border-box;">
+                <option value="China">China</option>
+                <option value="USA">USA</option>
+                <option value="India">India</option>
+                <option value="Peru">Perú</option>
+            </select>
+        </div>
+
+        <!-- Distritos (poblado dinámicamente por JS) -->
+        <div style="margin-bottom:8px; padding-bottom:8px; border-bottom:1px solid #e0e0e0; flex-shrink:0;">
+            <label
+                style="display:block; font-size:0.72em; font-weight:700; color:#2D6A4F; text-transform:uppercase; margin-bottom:4px;">📍
+                Distritos</label>
+            <div id="city-checkboxes" class="city-checkboxes"></div>
+        </div>
+
+        <!-- Filtro de fechas -->
+        <div style="flex-shrink:0;">
+            <label
+                style="display:block; font-size:0.72em; font-weight:700; color:#2D6A4F; text-transform:uppercase; margin-bottom:5px;">📅
+                Fechas</label>
+            <div
+                style="border:1px solid #eee; border-radius:4px; padding:6px 4px; box-sizing:border-box; width:100%; display:flex; flex-direction:column; background-color:#fafafa; overflow:hidden;">
+                <label style="display:block; font-size:0.75em; color:#555; margin-bottom:2px; padding-left:5px;"
+                    for="fecha-inicio">Inicio:</label>
+                <input type="date" id="fecha-inicio"
+                    style="width:85%; margin:0 auto 6px auto; box-sizing:border-box; padding:2px 3px; border-radius:4px; border:1px solid #ccc; font-size:0.65em; display:block;">
+                <label style="display:block; font-size:0.75em; color:#555; margin-bottom:2px; padding-left:5px;"
+                    for="fecha-fin">Fin:</label>
+                <input type="date" id="fecha-fin"
+                    style="width:85%; margin:0 auto 6px auto; box-sizing:border-box; padding:2px 3px; border-radius:4px; border:1px solid #ccc; font-size:0.65em; display:block;">
+                <label
+                    style="display:flex; align-items:center; gap:5px; font-size:0.75em; cursor:pointer; margin-top:2px; margin-bottom:0px; padding-left:5px;">
+                    <input type="checkbox" id="visualizar-todo" style="margin:0;"> Todas las fechas
+                </label>
+                <div id="fecha-rango" style="font-size:0.7em; color:#666; padding-left:5px; margin-top:2px;"></div>
+            </div>
         </div>
 
     </div>
@@ -154,9 +98,9 @@
                 <span>Invierno</span>
             </div>
         </div>
-        
+
     </div>
-        
+
     <div id="correlation">
         <div class="title-banner2">Arbol Correlacional</div>
 
@@ -169,15 +113,18 @@
                 <label style="color:#00CED1;"><input type="checkbox" name="values" value="CO" checked> CO</label>
                 <label style="color:#0000FF;"><input type="checkbox" name="values" value="O3" checked> O3</label>
             </div>
-            
+
             <div class="meteorological">
-                <label style="color:#008000;"><input type="checkbox" name="values" value="TEMP" checked> Temperatura</label>
-                <label style="color:#8B0000;"><input type="checkbox" name="values" value="PRES" checked> Presión Atm.</label>
+                <label style="color:#008000;"><input type="checkbox" name="values" value="TEMP" checked>
+                    Temperatura</label>
+                <label style="color:#8B0000;"><input type="checkbox" name="values" value="PRES" checked> Presión
+                    Atm.</label>
                 <label style="color:#4B0082;"><input type="checkbox" name="values" value="DEWP" checked> Humedad</label>
-                <label style="color:#1E90FF;"><input type="checkbox" name="values" value="RAIN" checked> Precipitación</label>
+                <label style="color:#1E90FF;"><input type="checkbox" name="values" value="RAIN" checked>
+                    Precipitación</label>
             </div>
         </div>
-            <!-- Barra de Correlación -->
+        <!-- Barra de Correlación -->
         <div id="correlation-bar-container">
             <div id="correlation-bar">
                 <div id="negative-label">-</div>
@@ -193,149 +140,149 @@
 
     <!--PARA MI SERITE TEMPORAL SEGUN EL CONTAMINANTE  -->
     <div id="serie-temporal">
-        
+
         <div class="title-banner3">Serie de Tiempo</div>
     </div>
     <div id="umap-reduccion">
-    <!-- Filtros en la parte superior -->
-    <div class="filter-container">
-        <!-- AQI -->
-        <div class="filter-row">
-            <div class="filter-item-aqi">
-                <button id="aqi-btn">AQI</button>               
+        <!-- Filtros en la parte superior -->
+        <div class="filter-container">
+            <!-- AQI -->
+            <div class="filter-row">
+                <div class="filter-item-aqi">
+                    <button id="aqi-btn">AQI</button>
+                </div>
+                <div class="filter-item-options">
+                    <label><input type="radio" name="dimensionality" value="tsne2"> TSNE</label>
+                    <label><input type="radio" name="dimensionality" value="pca2"> PCA</label>
+                    <label><input type="radio" name="dimensionality" value="umap2" checked> UMAP</label>
+                </div>
             </div>
-            <div class="filter-item-options">
-                <label><input type="radio" name="dimensionality" value="tsne2"> TSNE</label>
-                <label><input type="radio" name="dimensionality" value="pca2"> PCA</label>
-                <label><input type="radio" name="dimensionality" value="umap2" checked> UMAP</label>
-            </div>
-        </div>
-        
+
             <!-- Primera fila: 3 Clusters -->
-        <div class="filter-row">
-            <div class="filter-item-cluster">
-                <button id="cluster-3-btn">3 Clusters</button>
-                <select id="cluster-3-select">
-                    <option value="" disabled selected>Elegir Cluster</option>
-                    <option value="Cluster 1" style="background-color: #1b9e77;">Cluster 1</option>
-                    <option value="Cluster 2" style="background-color: #d95f02;">Cluster 2</option>
-                    <option value="Cluster 3" style="background-color: #7570b3;">Cluster 3</option>
-                </select>
+            <div class="filter-row">
+                <div class="filter-item-cluster">
+                    <button id="cluster-3-btn">3 Clusters</button>
+                    <select id="cluster-3-select">
+                        <option value="" disabled selected>Elegir Cluster</option>
+                        <option value="Cluster 1" style="background-color: #1b9e77;">Cluster 1</option>
+                        <option value="Cluster 2" style="background-color: #d95f02;">Cluster 2</option>
+                        <option value="Cluster 3" style="background-color: #7570b3;">Cluster 3</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Segunda fila: 4 Clusters -->
+            <div class="filter-row">
+                <div class="filter-item-cluster">
+                    <button id="cluster-4-btn">4 Clusters</button>
+                    <select id="cluster-4-select">
+                        <option value="" disabled selected>Elegir Cluster</option>
+                        <option value="Cluster 1" style="background-color: #66c2a5;">Cluster 1</option>
+                        <option value="Cluster 2" style="background-color: #fc8d62;">Cluster 2</option>
+                        <option value="Cluster 3" style="background-color: #8da0cb;">Cluster 3</option>
+                        <option value="Cluster 4" style="background-color: #e78ac3;">Cluster 4</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Tercera fila: 6 Clusters -->
+            <div class="filter-row">
+                <div class="filter-item-cluster">
+                    <button id="cluster-6-btn">6 Clusters</button>
+                    <select id="cluster-6-select">
+                        <option value="" disabled selected>Elegir Cluster</option>
+                        <option value="Cluster 1" style="background-color: #fdae61;">Cluster 1</option>
+                        <option value="Cluster 2" style="background-color: #fee08b;">Cluster 2</option>
+                        <option value="Cluster 3" style="background-color: #d73027;">Cluster 3</option>
+                        <option value="Cluster 4" style="background-color: #4575b4;">Cluster 4</option>
+                        <option value="Cluster 5" style="background-color: #313695;">Cluster 5</option>
+                        <option value="Cluster 6" style="background-color: #91bfdb;">Cluster 6</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Cuarta fila: 12 Clusters -->
+            <div class="filter-row">
+                <div class="filter-item-cluster">
+                    <button id="cluster-12-btn">12 Clusters</button>
+                    <select id="cluster-12-select">
+                        <option value="" disabled selected>Elegir Cluster</option>
+                        <option value="Cluster 1" style="background-color: #a6cee3;">Cluster 1</option>
+                        <option value="Cluster 2" style="background-color: #1f78b4;">Cluster 2</option>
+                        <option value="Cluster 3" style="background-color: #b2df8a;">Cluster 3</option>
+                        <option value="Cluster 4" style="background-color: #33a02c;">Cluster 4</option>
+                        <option value="Cluster 5" style="background-color: #fb9a99;">Cluster 5</option>
+                        <option value="Cluster 6" style="background-color: #e31a1c;">Cluster 6</option>
+                        <option value="Cluster 7" style="background-color: #fdbf6f;">Cluster 7</option>
+                        <option value="Cluster 8" style="background-color: #ff7f00;">Cluster 8</option>
+                        <option value="Cluster 9" style="background-color: #cab2d6;">Cluster 9</option>
+                        <option value="Cluster 10" style="background-color: #6a3d9a;">Cluster 10</option>
+                        <option value="Cluster 11" style="background-color: #ffff99;">Cluster 11</option>
+                        <option value="Cluster 12" style="background-color: #b15928;">Cluster 12</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Tercera fila: Filtros adicionales -->
+            <div class="filter-row">
+                <div class="filter-item">
+                    <label for="station-filter">Estaciónes:</label>
+                    <select id="station-filter">
+                        <option value="" disabled selected>Seleccione una estación</option>
+                        <option value="Primavera">Primavera</option>
+                        <option value="Verano">Verano</option>
+                        <option value="Otoño">Otoño</option>
+                        <option value="Invierno">Invierno</option>
+                    </select>
+                </div>
+
+                <div class="filter-item">
+                    <label for="year-filter">Año:</label>
+                    <select id="year-filter">
+                        <option value="" disabled selected>Seleccione un año</option>
+                        <option value="2013">2013</option>
+                        <option value="2014">2014</option>
+                        <option value="2015">2015</option>
+                        <option value="2016">2016</option>
+                        <option value="2017">2017</option>
+                    </select>
+                </div>
+
+                <div class="filter-item">
+                    <label for="month-filter">Mes:</label>
+                    <select id="month-filter">
+                        <option value="" disabled selected>Seleccione un mes</option>
+                        <option value="Enero">Enero</option>
+                        <option value="Febrero">Febrero</option>
+                        <option value="Marzo">Marzo</option>
+                        <option value="Abril">Abril</option>
+                        <option value="Mayo">Mayo</option>
+                        <option value="Junio">Junio</option>
+                        <option value="Julio">Julio</option>
+                        <option value="Agosto">Agosto</option>
+                        <option value="Septiembre">Septiembre</option>
+                        <option value="Octubre">Octubre</option>
+                        <option value="Noviembre">Noviembre</option>
+                        <option value="Diciembre">Diciembre</option>
+                    </select>
+                </div>
             </div>
         </div>
 
-        <!-- Segunda fila: 4 Clusters -->
-        <div class="filter-row">
-            <div class="filter-item-cluster">
-                <button id="cluster-4-btn">4 Clusters</button>
-                <select id="cluster-4-select">
-                    <option value="" disabled selected>Elegir Cluster</option>
-                    <option value="Cluster 1" style="background-color: #66c2a5;">Cluster 1</option>
-                    <option value="Cluster 2" style="background-color: #fc8d62;">Cluster 2</option>
-                    <option value="Cluster 3" style="background-color: #8da0cb;">Cluster 3</option>
-                    <option value="Cluster 4" style="background-color: #e78ac3;">Cluster 4</option>
-                </select>
-            </div>
-        </div>
 
-        <!-- Tercera fila: 6 Clusters -->
-        <div class="filter-row">
-            <div class="filter-item-cluster">
-                <button id="cluster-6-btn">6 Clusters</button>
-                <select id="cluster-6-select">
-                    <option value="" disabled selected>Elegir Cluster</option>
-                    <option value="Cluster 1" style="background-color: #fdae61;">Cluster 1</option>
-                    <option value="Cluster 2" style="background-color: #fee08b;">Cluster 2</option>
-                    <option value="Cluster 3" style="background-color: #d73027;">Cluster 3</option>
-                    <option value="Cluster 4" style="background-color: #4575b4;">Cluster 4</option>
-                    <option value="Cluster 5" style="background-color: #313695;">Cluster 5</option>
-                    <option value="Cluster 6" style="background-color: #91bfdb;">Cluster 6</option>
-                </select>
-            </div>
-        </div>
-
-        <!-- Cuarta fila: 12 Clusters -->
-        <div class="filter-row">
-            <div class="filter-item-cluster">
-                <button id="cluster-12-btn">12 Clusters</button>
-                <select id="cluster-12-select">
-                    <option value="" disabled selected>Elegir Cluster</option>
-                    <option value="Cluster 1" style="background-color: #a6cee3;">Cluster 1</option>
-                    <option value="Cluster 2" style="background-color: #1f78b4;">Cluster 2</option>
-                    <option value="Cluster 3" style="background-color: #b2df8a;">Cluster 3</option>
-                    <option value="Cluster 4" style="background-color: #33a02c;">Cluster 4</option>
-                    <option value="Cluster 5" style="background-color: #fb9a99;">Cluster 5</option>
-                    <option value="Cluster 6" style="background-color: #e31a1c;">Cluster 6</option>
-                    <option value="Cluster 7" style="background-color: #fdbf6f;">Cluster 7</option>
-                    <option value="Cluster 8" style="background-color: #ff7f00;">Cluster 8</option>
-                    <option value="Cluster 9" style="background-color: #cab2d6;">Cluster 9</option>
-                    <option value="Cluster 10" style="background-color: #6a3d9a;">Cluster 10</option>
-                    <option value="Cluster 11" style="background-color: #ffff99;">Cluster 11</option>
-                    <option value="Cluster 12" style="background-color: #b15928;">Cluster 12</option>
-                </select>
-            </div>
-        </div>
-
-        <!-- Tercera fila: Filtros adicionales -->
-        <div class="filter-row">
-            <div class="filter-item">
-                <label for="station-filter">Estaciónes:</label>
-                <select id="station-filter">
-                    <option value="" disabled selected>Seleccione una estación</option>
-                    <option value="Primavera">Primavera</option>
-                    <option value="Verano">Verano</option>
-                    <option value="Otoño">Otoño</option>
-                    <option value="Invierno">Invierno</option>
-                </select>
-            </div>
-
-            <div class="filter-item">
-                <label for="year-filter">Año:</label>
-                <select id="year-filter">
-                    <option value="" disabled selected>Seleccione un año</option>
-                    <option value="2013">2013</option>
-                    <option value="2014">2014</option>
-                    <option value="2015">2015</option>
-                    <option value="2016">2016</option>
-                    <option value="2017">2017</option>
-                </select>
-            </div>
-
-            <div class="filter-item">
-                <label for="month-filter">Mes:</label>
-                <select id="month-filter">
-                    <option value="" disabled selected>Seleccione un mes</option>
-                    <option value="Enero">Enero</option>
-                    <option value="Febrero">Febrero</option>
-                    <option value="Marzo">Marzo</option>
-                    <option value="Abril">Abril</option>
-                    <option value="Mayo">Mayo</option>
-                    <option value="Junio">Junio</option>
-                    <option value="Julio">Julio</option>
-                    <option value="Agosto">Agosto</option>
-                    <option value="Septiembre">Septiembre</option>
-                    <option value="Octubre">Octubre</option>
-                    <option value="Noviembre">Noviembre</option>
-                    <option value="Diciembre">Diciembre</option>
-                </select>
-            </div>
-        </div>
-    </div>
-
-    
-    <!-- Título y gráfico -->
-    <div class="title-banner">Distribución temporal</div>
+        <!-- Título y gráfico -->
+        <div class="title-banner">Distribución temporal</div>
         <div id="umap-plot">
             <div id="umap-plot-contaminacion"></div>
             <div id="umap-plot-meteorologia"></div>
             <div id="umap-plot-fusion"></div>
         </div>
     </div>
-    
 
-    
-    
-    
+
+
+
+
 
     <!-- GRAFICO PARA LA EVOLUCION DE LOS CONTAMIMANTES -->
     <div id="evolution">
@@ -347,7 +294,7 @@
     <!-- GRAFICO PARA LA EVOLUCION DE LOS CONTAMIMANTES -->
     <div id="distribucion-global">
         <div class="title-banner">Distribución Temporal Global</div>
-        
+
 
         <!-- Controles únicos para todas las gráficas -->
         <div class="controls-container">
@@ -361,7 +308,7 @@
                 <input type="radio" name="dataset" value="umap_unido_promediado2.csv"> UMAP
             </label>
         </div>
-        
+
         <!-- KMEANS Y HDBSCAN -->
         <div class="controls-container">
             <label>
@@ -371,7 +318,7 @@
                 <input type="radio" name="clustering" value="hdbscan"> HDBSCAN
             </label>
         </div>
-    
+
         <!-- Nuevos inputs para el rango de fechas -->
         <label>
             <div class="title-date"> Fecha Inicio:
@@ -384,7 +331,7 @@
             </div>
         </label>
         <button id="apply-date-filter">Aplicar</button>
-    
+
         <div class="filters-container">
             <div>
                 <button id="cluster-3-btn2">Kmeans 3</button>
@@ -436,19 +383,19 @@
                 </select>
             </div>
         </div>
-    
+
         <!-- Gráfica 1: Fusion -->
         <div class="graph-container">
             <div class="graph-title">Fusion</div>
             <div id="distribucion-global-graph1"></div>
         </div>
-    
+
         <!-- Gráfica 2: Contaminación -->
         <div class="graph-container">
             <div class="graph-title">Contaminación</div>
             <div id="distribucion-global-graph2"></div>
         </div>
-    
+
         <!-- Gráfica 3: Meteorología -->
         <div class="graph-container">
             <div class="graph-title">Meteorología</div>
@@ -477,114 +424,46 @@
         </div>
     </div>
 
-<!-- DISTRIBUCION ESPACIO TEMPORAL -->
-<div id="distribucion-espacio-temporal">
-    <div class="title-banner">Distribucion Espacio Temporal</div>
-    <div style="display: flex; align-items: center; gap: 20px; margin-bottom: -10px; font-size: 12px;">
-        <div style="display: flex; align-items: center; margin-left: 175px; margin-top: 10px;  ">
-            <div class="color-box" style="background-color: #2ca25f; width: 20px; height: 15px; margin-left: 300px;"></div>
-            <span class="tooltips22" style="margin-left: -12px; ">Primavera</span>
+    <!-- CONTENEDOR WRAPPER PARA POSICIONAMIENTO DINÁMICO -->
+    <div id="temporal-container-wrapper">
+        <!-- DISTRIBUCION ESPACIO TEMPORAL -->
+         
+        <div id="distribucion-espacio-temporal">
+            <div class="title-banner">Distribucion Espacio Temporal</div>
+            <div style="display: flex; align-items: center; gap: 20px; margin-bottom: -10px; font-size: 12px;">
+                <div style="display: flex; align-items: center; margin-left: 175px; margin-top: 10px;  ">
+                    <div class="color-box"
+                        style="background-color: #2ca25f; width: 20px; height: 15px; margin-left: 300px;"></div>
+                    <span class="tooltips22" style="margin-left: -12px; ">Primavera</span>
+                </div>
+                <div style="display: flex; align-items: center; margin-bottom: -10px;">
+                    <div class="color-box" style="background-color: #d95f0e; width: 20px; height: 15px;"></div>
+                    <span class="tooltips22" style="margin-left: -12px;;">Verano</span>
+                </div>
+                <div style="display: flex; align-items: center; margin-bottom: -10px;">
+                    <div class="color-box" style="background-color: #7570b3; width: 20px; height: 15px;"></div>
+                    <span class="tooltips22" style="margin-left: -12px;;">Otoño</span>
+                </div>
+                <div style="display: flex; align-items: center; margin-bottom: -10px;">
+                    <div class="color-box" style="background-color: #1e81c4; width: 20px; height: 15px;"></div>
+                    <span class="tooltips22" style="margin-left: -12px;;">Invierno</span>
+                </div>
+            </div>
+
+            <div id="distribucion-espacio-temporal-graph"></div>
         </div>
-        <div style="display: flex; align-items: center; margin-bottom: -10px;">
-            <div class="color-box" style="background-color: #d95f0e; width: 20px; height: 15px;"></div>
-            <span class="tooltips22" style="margin-left: -12px;;">Verano</span>
-        </div>
-        <div style="display: flex; align-items: center; margin-bottom: -10px;">
-            <div class="color-box" style="background-color: #7570b3; width: 20px; height: 15px;"></div>
-            <span class="tooltips22" style="margin-left: -12px;;">Otoño</span>
-        </div>
-        <div style="display: flex; align-items: center; margin-bottom: -10px;">
-            <div class="color-box" style="background-color: #1e81c4; width: 20px; height: 15px;"></div>
-            <span class="tooltips22" style="margin-left: -12px;;">Invierno</span>
-        </div>
-    </div>
-    <div style="margin-top: 620px; margin-bottom: -98px;"> <!-- Espacio adicional para bajar la línea -->
-        <div style="position: relative; height: 20px; width: 92.7%; margin: 0 auto; margin-left: 45px; "> <!-- Controla el ancho aquí -->
-            <hr style="border: 1px solid #000000; margin: 0; ">
-            <!-- Líneas verticales -->
-            <span style="position: absolute; left: 0; top: -5px; width: 5px; height: 13px; background-color: #000000;"></span>
-            <span style="position: absolute; left: 8%; top: -5px; width: 1px; height: 10px; background-color: #000000;"></span>
-            <span style="position: absolute; left: 14%; top: -5px; width: 1px; height: 10px; background-color: #000000;"></span>
-            <span style="position: absolute; left: 20.3%; top: -5px; width: 1px; height: 10px; background-color: #000000;"></span>
-            <span style="position: absolute; left: 26.3%; top: -5px; width: 1px; height: 13px; background-color: #000000;"></span>
-            <span style="position: absolute; left: 32.7%; top: -5px; width: 1px; height: 10px; background-color: #000000;"></span>
-            <span style="position: absolute; left: 38.9%; top: -5px; width: 1px; height: 10px; background-color: #000000;"></span>
-            <span style="position: absolute; left: 45.2%; top: -5px; width: 1px; height: 10px; background-color: #000000;"></span>
-            <span style="position: absolute; left: 51.3%; top: -5px; width: 1px; height: 13px; background-color: #000000;"></span>
-            <span style="position: absolute; left: 57.7%; top: -5px; width: 1px; height: 10px; background-color: #000000;"></span>
-            <span style="position: absolute; left: 63.9%; top: -5px; width: 1px; height: 10px; background-color: #000000;"></span>
-            <span style="position: absolute; left: 70.2%; top: -5px; width: 1px; height: 10px; background-color: #000000;"></span>
-            <span style="position: absolute; left: 76.1%; top: -5px; width: 1px; height: 13px; background-color: #000000;"></span>
-            <span style="position: absolute; left: 82.7%; top: -5px; width: 1px; height: 10px; background-color: #000000;"></span>
-            <span style="position: absolute; left: 88.9%; top: -5px; width: 1px; height: 10px; background-color: #000000;"></span>
-            <span style="position: absolute; left: 95.2%; top: -5px; width: 1px; height: 10px; background-color: #000000;"></span>
-            <span style="position: absolute; right: 0%; top: -5px; width: 5px; height: 13px; background-color: #000000;"></span>
+
+
+        <!-- DISTRIBUCION POR PERIODO ESTACIONAL -->
+        <div id="distribucion-por-periodo">
+            <div class="title-banner">Distribucion por periodo estacional</div>
+            <div id="distribucion-por-periodo-graph"></div>
         </div>
     </div>
 
-    
-    
-    
-    <div class="color-box" style="background-color: #2ca25f; margin-left: 74px; margin-top: 84px; margin-bottom: -55px; position: relative;">
-        <span class="tooltip22">Primavera</span>
-    </div>
-    <div class="color-box" style="background-color: #d95f0e; margin-left: 124px; margin-top: 40px; margin-bottom: -55px; position: relative;">
-        <span class="tooltip22">Verano</span>
-    </div>
-    <div class="color-box" style="background-color: #7570b3; margin-left: 174px; margin-top: 40px; margin-bottom: -55px; position: relative;">
-        <span class="tooltip22">Otoño</span>
-    </div>
-    <div class="color-box" style="background-color: #1e81c4; margin-left: 224px; margin-top: 40px; margin-bottom: -55px; position: relative;">
-        <span class="tooltip22">Invierno</span>
-    </div>
-    <div class="color-box" style="background-color: #2ca25f; margin-left: 274px; margin-top: 40px; margin-bottom: -55px; position: relative;">
-        <span class="tooltip22">Primavera</span>
-    </div>
-    <div class="color-box" style="background-color: #d95f0e; margin-left: 324px; margin-top: 40px; margin-bottom: -55px; position: relative;">
-        <span class="tooltip22">Verano</span>
-    </div>
-    <div class="color-box" style="background-color: #7570b3; margin-left: 374px; margin-top: 40px; margin-bottom: -55px; position: relative;">
-        <span class="tooltip22">Otoño</span>
-    </div>
-    <div class="color-box" style="background-color: #1e81c4; margin-left: 424px; margin-top: 40px; margin-bottom: -55px; position: relative;">
-        <span class="tooltip22">Invierno</span>
-    </div>
-    <div class="color-box" style="background-color: #2ca25f; margin-left: 474px; margin-top: 40px; margin-bottom: -55px; position: relative;">
-        <span class="tooltip22">Primavera</span>
-    </div>
-    <div class="color-box" style="background-color: #d95f0e; margin-left: 524px; margin-top: 40px; margin-bottom: -55px; position: relative;">
-        <span class="tooltip22">Verano</span>
-    </div>
-    <div class="color-box" style="background-color: #7570b3; margin-left: 574px; margin-top: 40px; margin-bottom: -55px; position: relative;">
-        <span class="tooltip22">Otoño</span>
-    </div>
-    <div class="color-box" style="background-color: #1e81c4; margin-left: 624px; margin-top: 40px; margin-bottom: -55px; position: relative;">
-        <span class="tooltip22">Invierno</span>
-    </div>
-    <div class="color-box" style="background-color: #2ca25f; margin-left: 674px; margin-top: 40px; margin-bottom: -55px; position: relative;">
-        <span class="tooltip22">Primavera</span>
-    </div>
-    <div class="color-box" style="background-color: #d95f0e; margin-left: 724px; margin-top: 40px; margin-bottom: -55px; position: relative;">
-        <span class="tooltip22">Verano</span>
-    </div>
-    <div class="color-box" style="background-color: #7570b3; margin-left: 774px; margin-top: 40px; margin-bottom: -55px; position: relative;">
-        <span class="tooltip22">Otoño</span>
-    </div>
-    <div class="color-box" style="background-color: #1e81c4; margin-left: 816px; margin-top: 40px; margin-bottom: -55px; position: relative;">
-        <span class="tooltip22">Invierno</span>
-    </div>
-    <div id="distribucion-espacio-temporal-graph"></div>
-</div>
-
-    
-    <!-- DISTRIBUCION POR PERIODO ESTACIONAL -->
-    <div id="distribucion-por-periodo">
-        <div class="title-banner">Distribucion por periodo estacional</div>
-        <div id="distribucion-por-periodo-graph"></div>
-    </div>
-            
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <script src="static/script.js"></script>
-    <script async src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCMo4rIxqVHcu1ZlU977Mc_VMEtH-1Jkdg&callback=initMap"></script>
     <!-- Incluye date-fns -->
     <script src="https://cdn.jsdelivr.net/npm/date-fns@latest"></script>
     <!-- Incluye Chart.js -->
@@ -593,9 +472,6 @@
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-
-    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCMo4rIxqVHcu1ZlU977Mc_VMEtH-1Jkdg&libraries=visualization&callback=initMap" async defer></script>
-
-    
 </body>
+
 </html>
