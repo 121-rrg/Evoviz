@@ -14,6 +14,91 @@ let startDateFilter = null;
 let endDateFilter = null;
 const getFusionPath = () => `NEW_MODEL_DCAE/fusion/data_unida/real_data_${dimensionality}/`;
 
+// --- AQI GLOBAL CONFIGURATION ---
+const dailyLimits = {
+    'PM2_5': 150,
+    'PM10': 150,
+    'CO': 4, // mg/m³
+    'SO2': 150,
+    'NO2': 80,
+    'O3': 200
+};
+const aqiRanges = [[0, 50], [50, 100], [100, 150], [150, 200], [200, 300], [300, 400], [400, 600]];
+const aqiColors = ['#00e400', '#ffff00', '#ff7e00', '#ff0000', '#99004c', '#800000'];
+const meteorologicalColor = 'blue';
+
+function getAQI_Index(value, attribute) {
+    if (attribute === 'CO') value /= 1000;
+    if (dailyLimits[attribute] && !isNaN(value)) {
+        const limit = dailyLimits[attribute];
+        const aqiIndex = aqiRanges.findIndex(range => value <= (limit * range[1]) / 100);
+        return aqiIndex >= 0 ? aqiIndex + 1 : 6;
+    }
+    return 1;
+}
+
+function getAQIColor(value, attribute) {
+    if (dailyLimits[attribute]) {
+        const idx = getAQI_Index(value, attribute);
+        return aqiColors[idx - 1] || aqiColors[5];
+    }
+    return meteorologicalColor; // Azul para meteorología
+}
+
+function getGlobalAQIColor(d) {
+    // Determine overall AQI by taking the worst case across all contaminants
+    const pollutants = ['PM2_5', 'PM10', 'SO2', 'NO2', 'CO', 'O3'];
+    let maxIdx = 1;
+    pollutants.forEach(p => {
+        const val = +d[p.replace('.', '_')];
+        if (!isNaN(val)) {
+            const idx = getAQI_Index(val, p);
+            if (idx > maxIdx) maxIdx = idx;
+        }
+    });
+    return aqiColors[maxIdx - 1];
+}
+
+function getGlobalAQILevel(d) {
+    const pollutants = ['PM2_5', 'PM10', 'SO2', 'NO2', 'CO', 'O3'];
+    let maxIdx = 1;
+    pollutants.forEach(p => {
+        const val = +d[p.replace('.', '_')];
+        if (!isNaN(val)) {
+            const idx = getAQI_Index(val, p);
+            if (idx > maxIdx) maxIdx = idx;
+        }
+    });
+    return maxIdx;
+}
+
+const seasonColors = {
+    'Spring': '#2ecc71',
+    'Summer': '#e67e22',
+    'Autumn': '#9b59b6',
+    'Winter': '#3498db'
+};
+
+function getSeason(date) {
+    const month = date.getMonth(); // Get month (0-11)
+    const day = date.getDate(); // Get day (1-31)
+    if ((month === 2 && day >= 20) || (month > 2 && month < 5) || (month === 5 && day <= 21)) {
+        return 'Spring';
+    } else if ((month === 5 && day >= 21) || (month > 5 && month < 8) || (month === 8 && day <= 22)) {
+        return 'Summer';
+    } else if ((month === 8 && day >= 23) || (month > 8 && month < 11) || (month === 11 && day <= 21)) {
+        return 'Autumn';
+    } else {
+        return 'Winter';
+    }
+}
+
+function normalizeValue(value, min, max) {
+    if (min === max) return 0.5;
+    return (value - min) / (max - min);
+}
+// --- END AQI CONFIGURATION ---
+
 function getDimCols() {
     if (dimensionality === "pca2") return ["PCA1", "PCA2"];
     if (dimensionality === "tsne2") return ["TSNE1", "TSNE2"];
@@ -1618,60 +1703,6 @@ function updateTimeSeriesChart(selectedCity, startDate, endDate, selectedDates =
 
     const contaminantAttributes = ['PM2_5', 'PM10', 'SO2', 'NO2', 'CO', 'O3'];
     const meteorologicalAttributes = ['TEMP', 'PRES', 'DEWP', 'RAIN'];
-    const dailyLimits = {
-        'PM2_5': 150,
-        'PM10': 150,
-        'CO': 4, // Convertido a µg/m³ (4 mg/m³ * 1000)
-        'SO2': 150,
-        'NO2': 80,
-        'O3': 200
-    };
-
-    const aqiRanges = [[0, 50], [50, 100], [100, 150], [150, 200], [200, 300], [300, 400], [400, 600]];
-    const aqiColors = ['#00e400', '#ff0', '#ff7e00', '#f00', '#99004c', '#7e0023'];
-    const meteorologicalColor = 'blue';
-
-    // Define los colores de las estaciones
-    const seasonColors = {
-        'Spring': '#2ecc71',
-        'Summer': '#e67e22',
-        'Autumn': '#9b59b6',
-        'Winter': '#3498db'
-    };
-
-    function getSeason(date) {
-        const month = date.getMonth(); // Get month (0-11)
-        const day = date.getDate(); // Get day (1-31)
-
-        if ((month === 2 && day >= 20) || (month > 2 && month < 5) || (month === 5 && day <= 21)) {
-            return 'Spring';
-        } else if ((month === 5 && day >= 21) || (month > 5 && month < 8) || (month === 8 && day <= 22)) {
-            return 'Summer';
-        } else if ((month === 8 && day >= 23) || (month > 8 && month < 11) || (month === 11 && day <= 21)) {
-            return 'Autumn';
-        } else {
-            return 'Winter';
-        }
-    }
-
-
-    function normalizeValue(value, min, max) {
-        if (min === max) return 0.5; // Evitar divisiones por cero
-        return (value - min) / (max - min);
-    }
-
-    function getAQIColor(value, attribute) {
-        if (attribute === 'CO') {
-            // Convertir CO de mg/m³ a µg/m³ antes de calcular el AQI
-            value /= 1000; // Conversión de mg/m³ a µg/m³
-        }
-        if (dailyLimits[attribute] && !isNaN(value)) {
-            const limit = dailyLimits[attribute];
-            const aqiIndex = aqiRanges.findIndex(range => value <= (limit * range[1]) / 100);
-            return aqiIndex >= 0 ? aqiColors[aqiIndex] : '#7e0023'; // Negro si está fuera de rango
-        }
-        return meteorologicalColor; // Usar color azul para atributos meteorológicos
-    }
 
     d3.csv(`${getFusionPath()}${selectedCity}`).then(data => {
         const attributes = [...contaminantAttributes, ...meteorologicalAttributes];
@@ -1765,6 +1796,11 @@ function updateTimeSeriesChart(selectedCity, startDate, endDate, selectedDates =
         const containerId = 'chart-container';
         let chartContainer = container.select(`#${containerId}`);
 
+        if (selectedAttributes.length === 0) {
+            if (!chartContainer.empty()) chartContainer.selectAll('*').remove();
+            return;
+        }
+
         if (chartContainer.empty()) {
             chartContainer = container.append('div')
                 .attr('id', containerId)
@@ -1772,19 +1808,22 @@ function updateTimeSeriesChart(selectedCity, startDate, endDate, selectedDates =
         }
 
         // Filtrar datos si startDate y endDate están definidos
-        // Usar constructor local (año, mes-1, día) para evitar problemas de zona horaria
+        // Usar constructor local para evitar problemas de desfase horario (UTC vs Local)
         let filteredData = data.map(d => ({
             date: new Date(+d.year, +d.month - 1, +d.day),
             _dateKey: `${+d.year}-${+d.month}-${+d.day}`,
             value: selectedAttributes.reduce((acc, attribute) => {
+                // Soporte para ambos nombres de CO (con punto o guion bajo)
                 acc[attribute] = +d[attribute.replace('.', '_')];
                 return acc;
             }, {})
         }));
 
         if (startDate && endDate) {
-            const start = new Date(startDate);
-            const end = new Date(endDate);
+            const startParts = startDate.split('-').map(Number);
+            const endParts = endDate.split('-').map(Number);
+            const start = new Date(startParts[0], startParts[1] - 1, startParts[2]);
+            const end = new Date(endParts[0], endParts[1] - 1, endParts[2]);
             filteredData = filteredData.filter(d => d.date >= start && d.date <= end);
         }
 
@@ -2016,7 +2055,8 @@ function updateTimeSeriesChart(selectedCity, startDate, endDate, selectedDates =
                     return aqiCheckbox && aqiCheckbox.checked ? 4 : 0;
                 })
                 .attr('fill', d => getAQIColor(d.value[attribute], attribute))
-                .attr('stroke-width', 1.5)
+                .attr('stroke', 'black')
+                .attr('stroke-width', 0.5)
                 .attr('opacity', d => d.isSelected ? 1 : 0.08)
                 .on('mouseover', function (event, d) {
                     const [mouseX, mouseY] = d3.pointer(event);
@@ -2579,8 +2619,6 @@ async function updateUMAP() {
 
     // Crear el gráfico
     plotUMAP(filterDataFusion, fechaInicio, fechaFin);
-    plotUMAPcont(filterDataFusion, fechaInicio, fechaFin);
-    plotUMAPmet(filterDataFusion, fechaInicio, fechaFin);
 }
 
 function filterData(data, startDate, endDate) {
@@ -2661,25 +2699,66 @@ function plotUMAP(data, fechaInicio, fechaFin) {
 
     // Función para actualizar la opacidad de los puntos del cluster seleccionado y agregar borde
     function updateClusterDisplay(clusterCount, selectedCluster, clusterColors) {
-        svg.selectAll("circle")
-            .attr("fill", d => clusterColors[d[`Kmeans_${clusterCount}`]]) // Relleno con el color del cluster
-            .attr("opacity", d => d[`Kmeans_${clusterCount}`] === selectedCluster ? 1 : 0.2) // Opacidad según selección
-            .attr("stroke", d => d[`Kmeans_${clusterCount}`] === selectedCluster ? "black" : "none") // Borde negro solo en el cluster seleccionado
-            .attr("stroke-width", d => d[`Kmeans_${clusterCount}`] === selectedCluster ? 1 : 0); // El borde negro tendrá grosor de 2 si está seleccionado, sino sin borde
+        const isTemporalFiltered = activeFilterData.length !== data.length;
+        const activeFilterDates = new Set(activeFilterData.map(d => `${d.year}-${d.month}-${d.day}`));
+        const isClusterFiltered = selectedCluster !== null && !isNaN(selectedCluster);
+
+        const selection = svg.selectAll("circle");
+        selection
+            .attr("fill", d => clusterColors[d[`Kmeans_${clusterCount}`]])
+            .attr("opacity", d => {
+                const inCluster = d[`Kmeans_${clusterCount}`] === selectedCluster;
+                const inFilter = activeFilterDates.has(`${d.year}-${d.month}-${d.day}`);
+
+                if (isClusterFiltered && isTemporalFiltered) {
+                    return (inCluster && inFilter) ? 1 : 0.05;
+                } else if (isClusterFiltered) {
+                    return inCluster ? 1 : 0.05;
+                } else if (isTemporalFiltered) {
+                    return inFilter ? 1 : 0.05;
+                } else {
+                    return 1;
+                }
+            })
+            .attr("stroke", d => {
+                const inCluster = d[`Kmeans_${clusterCount}`] === selectedCluster;
+                const inFilter = activeFilterDates.has(`${d.year}-${d.month}-${d.day}`);
+                return (inCluster && inFilter && (isClusterFiltered || isTemporalFiltered)) ? "black" : "none";
+            })
+            .attr("stroke-width", d => {
+                const inCluster = d[`Kmeans_${clusterCount}`] === selectedCluster;
+                const inFilter = activeFilterDates.has(`${d.year}-${d.month}-${d.day}`);
+                return (inCluster && inFilter && (isClusterFiltered || isTemporalFiltered)) ? 2 : 0;
+            });
+
+        selection.filter(d => {
+            const inCluster = d[`Kmeans_${clusterCount}`] === selectedCluster;
+            const inFilter = activeFilterDates.has(`${d.year}-${d.month}-${d.day}`);
+            if (isClusterFiltered && isTemporalFiltered) return inCluster && inFilter;
+            if (isClusterFiltered) return inCluster;
+            if (isTemporalFiltered) return inFilter;
+            return false;
+        }).raise();
     }
 
     function updateAQIDisplay() {
-        // Obtener las fechas seleccionadas en los filtros activos
+        const isTemporalFiltered = activeFilterData.length !== data.length;
         const activeFilterDates = new Set(activeFilterData.map(d => `${d.year}-${d.month}-${d.day}`));
 
-        svg.selectAll("circle")
-            .attr("fill", d => aqiColors[d.AQI] === undefined ? '#000000' : aqiColors[d.AQI]) // Color por AQI
-            .attr("opacity", d => activeFilterDates.has(`${d.year}-${d.month}-${d.day}`) ? 1 : 0.1); // Opacar los no seleccionados
+        const selection = svg.selectAll("circle");
+        selection
+            .attr("fill", d => aqiColors[d.AQI] === undefined ? '#000000' : aqiColors[d.AQI])
+            .attr("opacity", d => {
+                if (!isTemporalFiltered) return 1;
+                return activeFilterDates.has(`${d.year}-${d.month}-${d.day}`) ? 1 : 0.05;
+            });
+
+        if (isTemporalFiltered) {
+            selection.filter(d => activeFilterDates.has(`${d.year}-${d.month}-${d.day}`)).raise();
+        }
     }
 
     document.getElementById("cluster-3-btn").addEventListener("click", function () {
-        if (isGraphLocked2) return; // Si la gráfica está bloqueada, salir de la función.
-        if (isGraphLocked3) return; // Si la gráfica está bloqueada, salir de la función.
         document.getElementById("cluster-3-btn").classList.remove("dimmed");
         document.getElementById("cluster-3-select").classList.remove("dimmed");
         document.getElementById("aqi-btn").classList.add("dimmed");
@@ -2703,8 +2782,6 @@ function plotUMAP(data, fechaInicio, fechaFin) {
 
     // Evento para el selector de cluster-12
     document.getElementById("cluster-12-btn").addEventListener("click", function () {
-        if (isGraphLocked2) return; // Si la gráfica está bloqueada, salir de la función.
-        if (isGraphLocked3) return; // Si la gráfica está bloqueada, salir de la función.
         document.getElementById("cluster-12-btn").classList.remove("dimmed");
         document.getElementById("cluster-12-select").classList.remove("dimmed");
         document.getElementById("aqi-btn").classList.add("dimmed");
@@ -2729,8 +2806,6 @@ function plotUMAP(data, fechaInicio, fechaFin) {
 
     // Evento para el botón de cluster-4
     document.getElementById("cluster-4-btn").addEventListener("click", function () {
-        if (isGraphLocked2) return; // Si la gráfica está bloqueada, salir de la función.
-        if (isGraphLocked3) return; // Si la gráfica está bloqueada, salir de la función.
         document.getElementById("cluster-4-btn").classList.remove("dimmed");
         document.getElementById("cluster-4-select").classList.remove("dimmed");
         document.getElementById("aqi-btn").classList.add("dimmed");
@@ -2786,54 +2861,33 @@ function plotUMAP(data, fechaInicio, fechaFin) {
     // Evento para el selector de cluster-12
     document.getElementById("cluster-12-select").addEventListener("change", function () {
         if (isGraphLocked2 || isGraphLocked3) return;
-        const selectedCluster = parseInt(this.value.replace('Cluster ', '')) - 1;
-        filteredClusterData = data.filter(d => d.Kmeans_12 === selectedCluster);
-        // Obtener las fechas únicas del cluster seleccionado
-        const clusterDates = [...new Set(filteredClusterData.map(d => `${d.year}-${d.month}-${d.day}`))];
-        // Obtener el color correspondiente al cluster seleccionado
-        const clusterColor = kmeans12Colors[selectedCluster];
-        updateVisualization();
+        const val = this.value;
+        const selectedCluster = val ? parseInt(val.replace('Cluster ', '')) - 1 : null;
+        filteredClusterData4 = selectedCluster !== null ? data.filter(d => d.Kmeans_12 === selectedCluster) : data;
+        updateVisualization4();
         updateClusterDisplay(12, selectedCluster, kmeans12Colors);
-        plotUMAPcontCluster(filteredDataCont, fechaInicio, fechaFin, clusterDates, clusterColor);
-        plotUMAPmetCluster(filterDataMet, fechaInicio, fechaFin, clusterDates, clusterColor);
     });
 
     // Evento para el selector de cluster-3
     document.getElementById("cluster-3-select").addEventListener("change", function () {
         if (isGraphLocked2 || isGraphLocked3) return;
-        const selectedCluster = parseInt(this.value.replace('Cluster ', '')) - 1;
-        filteredClusterData = data.filter(d => d.Kmeans_3 === selectedCluster);
-        // Obtener las fechas únicas del cluster seleccionado
-        const clusterDates = [...new Set(filteredClusterData.map(d => `${d.year}-${d.month}-${d.day}`))];
-        // Obtener el color correspondiente al cluster seleccionado
-        const clusterColor = kmeans3Colors[selectedCluster];
-        updateVisualization();
+        const val = this.value;
+        const selectedCluster = val ? parseInt(val.replace('Cluster ', '')) - 1 : null;
+        filteredClusterData3 = selectedCluster !== null ? data.filter(d => d.Kmeans_3 === selectedCluster) : data;
+        updateVisualization3();
         updateClusterDisplay(3, selectedCluster, kmeans3Colors);
-        plotUMAPcontCluster(filteredDataCont, fechaInicio, fechaFin, clusterDates, clusterColor);
-        plotUMAPmetCluster(filterDataMet, fechaInicio, fechaFin, clusterDates, clusterColor);
     });
 
     // Evento para el selector de cluster-4
     document.getElementById("cluster-4-select").addEventListener("change", function () {
         if (isGraphLocked2 || isGraphLocked3) return;
 
-        const selectedCluster = parseInt(this.value.replace('Cluster ', '')) - 1;
-        filteredClusterData = data.filter(d => d.Kmeans_4 === selectedCluster);
-
-        // Obtener las fechas únicas del cluster seleccionado
-        const clusterDates = [...new Set(filteredClusterData.map(d => `${d.year}-${d.month}-${d.day}`))];
-
-        // Obtener el color correspondiente al cluster seleccionado
-        const clusterColor = kmeans4Colors[selectedCluster];
-
-        // // Imprimir en consola las fechas y el color del cluster seleccionado
-        // console.log("Fechas del Cluster seleccionado:", clusterDates);
-        // console.log("Color del Cluster seleccionado:", clusterColor);
+        const val = this.value;
+        const selectedCluster = val ? parseInt(val.replace('Cluster ', '')) - 1 : null;
+        filteredClusterData = selectedCluster !== null ? data.filter(d => d.Kmeans_4 === selectedCluster) : data;
 
         updateVisualization();
         updateClusterDisplay(4, selectedCluster, kmeans4Colors);
-        plotUMAPcontCluster(filteredDataCont, fechaInicio, fechaFin, clusterDates, clusterColor);
-        plotUMAPmetCluster(filterDataMet, fechaInicio, fechaFin, clusterDates, clusterColor);
     });
 
 
@@ -2843,26 +2897,15 @@ function plotUMAP(data, fechaInicio, fechaFin) {
 
     // Evento para el selector de cluster-6
     document.getElementById("cluster-6-select").addEventListener("change", function () {
-        if (isGraphLocked2) return; // Si la gráfica está bloqueada, salir de la función.
-        if (isGraphLocked3) return; // Si la gráfica está bloqueada, salir de la función.
+        if (isGraphLocked2) return;
+        if (isGraphLocked3) return;
 
-        const selectedCluster = parseInt(this.value.replace('Cluster ', '')) - 1;
-        filteredClusterData2 = data.filter(d => d.Kmeans_6 === selectedCluster);
-
-        // Obtener las fechas únicas del cluster seleccionado
-        const clusterDates = [...new Set(filteredClusterData2.map(d => `${d.year}-${d.month}-${d.day}`))];
-
-        // Obtener el color correspondiente al cluster seleccionado
-        const clusterColor = kmeans6Colors[selectedCluster];
-
-        // // Imprimir en consola las fechas y el color del cluster seleccionado
-        // console.log("Fechas del Cluster seleccionado:", clusterDates);
-        // console.log("Color del Cluster seleccionado:", clusterColor);
+        const val = this.value;
+        const selectedCluster = val ? parseInt(val.replace('Cluster ', '')) - 1 : null;
+        filteredClusterData2 = selectedCluster !== null ? data.filter(d => d.Kmeans_6 === selectedCluster) : data;
 
         updateVisualization2();
         updateClusterDisplay(6, selectedCluster, kmeans6Colors);
-        plotUMAPcontCluster(filteredDataCont, fechaInicio, fechaFin, clusterDates, clusterColor);
-        plotUMAPmetCluster(filterDataMet, fechaInicio, fechaFin, clusterDates, clusterColor);
     });
 
     // Evento para el botón AQI
@@ -2916,47 +2959,39 @@ function plotUMAP(data, fechaInicio, fechaFin) {
         }
     }
 
-    // Evento para el filtro de estación del año
     document.getElementById('station-filter').addEventListener('change', (event) => {
         if (isGraphLocked2 || isGraphLocked3) return;
-
         const selectedSeason = event.target.value;
-        activeFilterData = filterDataBySeason(selectedSeason, data); // Actualiza el único filtro activo
-        activeFilterData2 = filterDataBySeason(selectedSeason, data); // Actualiza el único filtro activo
-
-        highlightSeason(selectedSeason, data, svg, xScale, yScale);
-
-        // Llama a la función de visualización correspondiente
+        const filtered = filterDataBySeason(selectedSeason, data);
+        activeFilterData = filtered;
+        activeFilterData2 = filtered;
+        activeFilterData3 = filtered;
+        activeFilterData4 = filtered;
         getActiveClusterVisualizationFunction()();
         updateFilterOpacity('station-filter');
     });
 
-    // Evento para el filtro de año
     document.getElementById('year-filter').addEventListener('change', (event) => {
         if (isGraphLocked2 || isGraphLocked3) return;
-
-        const selectedYear = parseInt(event.target.value, 10);
-        activeFilterData = data.filter(d => d.year === selectedYear); // Solo un filtro activo a la vez
-        activeFilterData2 = data.filter(d => d.year === selectedYear); // Solo un filtro activo a la vez
-
-        highlightYear(selectedYear, data, svg, xScale, yScale);
-
-        // Llama a la función de visualización correspondiente
+        const selectedYearVal = event.target.value;
+        const selectedYear = selectedYearVal ? parseInt(selectedYearVal, 10) : null;
+        const filtered = selectedYear ? data.filter(d => d.year === selectedYear) : data;
+        activeFilterData = filtered;
+        activeFilterData2 = filtered;
+        activeFilterData3 = filtered;
+        activeFilterData4 = filtered;
         getActiveClusterVisualizationFunction()();
         updateFilterOpacity('year-filter');
     });
 
-    // Evento para el filtro de mes
     document.getElementById('month-filter').addEventListener('change', (event) => {
         if (isGraphLocked2 || isGraphLocked3) return;
-
         const selectedMonth = event.target.value;
-        activeFilterData = filterDataByMonth(selectedMonth, data); // Solo un filtro activo a la vez
-        activeFilterData2 = filterDataByMonth(selectedMonth, data); // Solo un filtro activo a la vez
-
-        highlightMonth(selectedMonth, data, svg, xScale, yScale);
-
-        // Llama a la función de visualización correspondiente
+        const filtered = filterDataByMonth(selectedMonth, data);
+        activeFilterData = filtered;
+        activeFilterData2 = filtered;
+        activeFilterData3 = filtered;
+        activeFilterData4 = filtered;
         getActiveClusterVisualizationFunction()();
         updateFilterOpacity('month-filter');
     });
@@ -2964,96 +2999,230 @@ function plotUMAP(data, fechaInicio, fechaFin) {
     // Función para actualizar la visualización considerando solo cluster + un filtro activo
     // Función para actualizar la visualización considerando solo cluster + un filtro activo
     function updateVisualization() {
+        const isClusterFiltered = filteredClusterData.length !== data.length;
+        const isTemporalFiltered = activeFilterData.length !== data.length;
+
         const clusterDates = new Set(filteredClusterData.map(d => `${d.year}-${d.month}-${d.day}`));
         const activeFilterDates = new Set(activeFilterData.map(d => `${d.year}-${d.month}-${d.day}`));
 
-        // Intersección de fechas entre cluster y el filtro activo
-        const intersectionDates = new Set([...clusterDates].filter(date => activeFilterDates.has(date)));
+        const selection = svg.selectAll("circle");
 
-        // Filtrar los datos que cumplen con la intersección de ambos filtros
+        selection
+            .attr("fill", d => kmeans4Colors[d.Kmeans_4])
+            .attr("opacity", d => {
+                const dateKey = `${d.year}-${d.month}-${d.day}`;
+                const inCluster = clusterDates.has(dateKey);
+                const inFilter = activeFilterDates.has(dateKey);
+
+                if (isClusterFiltered && isTemporalFiltered) {
+                    return (inCluster && inFilter) ? 1 : 0.05;
+                } else if (isClusterFiltered) {
+                    return inCluster ? 1 : 0.05;
+                } else if (isTemporalFiltered) {
+                    return inFilter ? 1 : 0.05;
+                } else {
+                    return 1;
+                }
+            })
+            .attr("stroke", d => {
+                const dateKey = `${d.year}-${d.month}-${d.day}`;
+                const inCluster = clusterDates.has(dateKey);
+                const inFilter = activeFilterDates.has(dateKey);
+                return (inCluster && inFilter && (isClusterFiltered || isTemporalFiltered)) ? "black" : "none";
+            })
+            .attr("stroke-width", d => {
+                const dateKey = `${d.year}-${d.month}-${d.day}`;
+                const inCluster = clusterDates.has(dateKey);
+                const inFilter = activeFilterDates.has(dateKey);
+                return (inCluster && inFilter && (isClusterFiltered || isTemporalFiltered)) ? 2 : 0;
+            });
+
+        // Raise selected points to the front
+        selection.filter(d => {
+            const dateKey = `${d.year}-${d.month}-${d.day}`;
+            const inCluster = clusterDates.has(dateKey);
+            const inFilter = activeFilterDates.has(dateKey);
+            if (isClusterFiltered && isTemporalFiltered) return inCluster && inFilter;
+            if (isClusterFiltered) return inCluster;
+            if (isTemporalFiltered) return inFilter;
+            return false;
+        }).raise();
+
         const intersectionData = filteredClusterData.filter(d => activeFilterDates.has(`${d.year}-${d.month}-${d.day}`));
-
-        svg.selectAll("circle")
-            .attr("fill", d => kmeans4Colors[d.Kmeans_4])  // Mantiene el color original del cluster
-            .attr("opacity", d => (clusterDates.has(`${d.year}-${d.month}-${d.day}`) ||
-                activeFilterDates.has(`${d.year}-${d.month}-${d.day}`)) ? 1 : 0.3) // Los que no están en ningún filtro se atenúan
-            .attr("stroke", d => intersectionDates.has(`${d.year}-${d.month}-${d.day}`) ? "black" : "none") // Borde rojo si está en ambos filtros
-            .attr("stroke-width", d => intersectionDates.has(`${d.year}-${d.month}-${d.day}`) ? 2 : 0);
-
-        // **Actualizar gráficos con los datos de la intersección**
         if (intersectionData.length > 0) {
             const selectedDates = intersectionData.map(d => `${d.year}-${d.month}-${d.day}`);
-            const cityFile = intersectionData.length > 0 ? intersectionData[0].city : null;
-
             handleSelectionUpdate(intersectionData, selectedDates, fechaInicio, fechaFin);
         }
     }
 
     // Función para actualizar la visualización considerando solo cluster + un filtro activo
     function updateVisualization2() {
+        const isClusterFiltered = filteredClusterData2.length !== data.length;
+        const isTemporalFiltered = activeFilterData2.length !== data.length;
+
         const clusterDates = new Set(filteredClusterData2.map(d => `${d.year}-${d.month}-${d.day}`));
         const activeFilterDates2 = new Set(activeFilterData2.map(d => `${d.year}-${d.month}-${d.day}`));
 
-        // Intersección de fechas entre cluster y el filtro activo
-        const intersectionDates = new Set([...clusterDates].filter(date => activeFilterDates2.has(date)));
+        const selection = svg.selectAll("circle");
 
-        // Filtrar los datos que cumplen con la intersección de ambos filtros
+        selection
+            .attr("fill", d => kmeans6Colors[d.Kmeans_6])
+            .attr("opacity", d => {
+                const dateKey = `${d.year}-${d.month}-${d.day}`;
+                const inCluster = clusterDates.has(dateKey);
+                const inFilter = activeFilterDates2.has(dateKey);
+
+                if (isClusterFiltered && isTemporalFiltered) {
+                    return (inCluster && inFilter) ? 1 : 0.05;
+                } else if (isClusterFiltered) {
+                    return inCluster ? 1 : 0.05;
+                } else if (isTemporalFiltered) {
+                    return inFilter ? 1 : 0.05;
+                } else {
+                    return 1;
+                }
+            })
+            .attr("stroke", d => {
+                const dateKey = `${d.year}-${d.month}-${d.day}`;
+                const inCluster = clusterDates.has(dateKey);
+                const inFilter = activeFilterDates2.has(dateKey);
+                return (inCluster && inFilter && (isClusterFiltered || isTemporalFiltered)) ? "black" : "none";
+            })
+            .attr("stroke-width", d => {
+                const dateKey = `${d.year}-${d.month}-${d.day}`;
+                const inCluster = clusterDates.has(dateKey);
+                const inFilter = activeFilterDates2.has(dateKey);
+                return (inCluster && inFilter && (isClusterFiltered || isTemporalFiltered)) ? 2 : 0;
+            });
+
+        // Raise selected points to the front
+        selection.filter(d => {
+            const dateKey = `${d.year}-${d.month}-${d.day}`;
+            const inCluster = clusterDates.has(dateKey);
+            const inFilter = activeFilterDates2.has(dateKey);
+            if (isClusterFiltered && isTemporalFiltered) return inCluster && inFilter;
+            if (isClusterFiltered) return inCluster;
+            if (isTemporalFiltered) return inFilter;
+            return false;
+        }).raise();
+
         const intersectionData = filteredClusterData2.filter(d => activeFilterDates2.has(`${d.year}-${d.month}-${d.day}`));
-
-        svg.selectAll("circle")
-            .attr("fill", d => kmeans6Colors[d.Kmeans_6])  // Mantiene el color original del cluster
-            .attr("opacity", d => (clusterDates.has(`${d.year}-${d.month}-${d.day}`) ||
-                activeFilterDates2.has(`${d.year}-${d.month}-${d.day}`)) ? 1 : 0.3) // Los que no están en ningún filtro se atenúan
-            .attr("stroke", d => intersectionDates.has(`${d.year}-${d.month}-${d.day}`) ? "black" : "none") // Borde rojo si está en ambos filtros
-            .attr("stroke-width", d => intersectionDates.has(`${d.year}-${d.month}-${d.day}`) ? 2 : 0);
-
-        // **Actualizar gráficos con los datos de la intersección**
         if (intersectionData.length > 0) {
             const selectedDates = intersectionData.map(d => `${d.year}-${d.month}-${d.day}`);
-            const cityFile = intersectionData.length > 0 ? intersectionData[0].city : null;
-
             handleSelectionUpdate(intersectionData, selectedDates, fechaInicio, fechaFin);
         }
     }
 
     function updateVisualization3() {
+        const isClusterFiltered = filteredClusterData3.length !== data.length;
+        const isTemporalFiltered = activeFilterData3.length !== data.length;
+
         const clusterDates = new Set(filteredClusterData3.map(d => `${d.year}-${d.month}-${d.day}`));
         const activeFilterDates3 = new Set(activeFilterData3.map(d => `${d.year}-${d.month}-${d.day}`));
-        // Intersección de fechas entre cluster y el filtro activo
-        const intersectionDates = new Set([...clusterDates].filter(date => activeFilterDates3.has(date)));
-        // Filtrar los datos que cumplen con la intersección de ambos filtros
+
+        const selection = svg.selectAll("circle");
+
+        selection
+            .attr("fill", d => kmeans3Colors[d.Kmeans_3])
+            .attr("opacity", d => {
+                const dateKey = `${d.year}-${d.month}-${d.day}`;
+                const inCluster = clusterDates.has(dateKey);
+                const inFilter = activeFilterDates3.has(dateKey);
+
+                if (isClusterFiltered && isTemporalFiltered) {
+                    return (inCluster && inFilter) ? 1 : 0.05;
+                } else if (isClusterFiltered) {
+                    return inCluster ? 1 : 0.05;
+                } else if (isTemporalFiltered) {
+                    return inFilter ? 1 : 0.05;
+                } else {
+                    return 1;
+                }
+            })
+            .attr("stroke", d => {
+                const dateKey = `${d.year}-${d.month}-${d.day}`;
+                const inCluster = clusterDates.has(dateKey);
+                const inFilter = activeFilterDates3.has(dateKey);
+                return (inCluster && inFilter && (isClusterFiltered || isTemporalFiltered)) ? "black" : "none";
+            })
+            .attr("stroke-width", d => {
+                const dateKey = `${d.year}-${d.month}-${d.day}`;
+                const inCluster = clusterDates.has(dateKey);
+                const inFilter = activeFilterDates3.has(dateKey);
+                return (inCluster && inFilter && (isClusterFiltered || isTemporalFiltered)) ? 2 : 0;
+            });
+
+        // Raise selected points to the front
+        selection.filter(d => {
+            const dateKey = `${d.year}-${d.month}-${d.day}`;
+            const inCluster = clusterDates.has(dateKey);
+            const inFilter = activeFilterDates3.has(dateKey);
+            if (isClusterFiltered && isTemporalFiltered) return inCluster && inFilter;
+            if (isClusterFiltered) return inCluster;
+            if (isTemporalFiltered) return inFilter;
+            return false;
+        }).raise();
+
         const intersectionData = filteredClusterData3.filter(d => activeFilterDates3.has(`${d.year}-${d.month}-${d.day}`));
-        svg.selectAll("circle")
-            .attr("fill", d => kmeans3Colors[d.Kmeans_3])  // Mantiene el color original del cluster
-            .attr("opacity", d => (clusterDates.has(`${d.year}-${d.month}-${d.day}`) ||
-                activeFilterDates3.has(`${d.year}-${d.month}-${d.day}`)) ? 1 : 0.3) // Los que no están en ningún filtro se atenúan
-            .attr("stroke", d => intersectionDates.has(`${d.year}-${d.month}-${d.day}`) ? "black" : "none") // Borde rojo si está en ambos filtros
-            .attr("stroke-width", d => intersectionDates.has(`${d.year}-${d.month}-${d.day}`) ? 2 : 0);
-        // **Actualizar gráficos con los datos de la intersección**
         if (intersectionData.length > 0) {
             const selectedDates = intersectionData.map(d => `${d.year}-${d.month}-${d.day}`);
-            const cityFile = intersectionData.length > 0 ? intersectionData[0].city : null;
             handleSelectionUpdate(intersectionData, selectedDates, fechaInicio, fechaFin);
         }
     }
 
     function updateVisualization4() {
+        const isClusterFiltered = filteredClusterData4.length !== data.length;
+        const isTemporalFiltered = activeFilterData4.length !== data.length;
+
         const clusterDates = new Set(filteredClusterData4.map(d => `${d.year}-${d.month}-${d.day}`));
         const activeFilterDates4 = new Set(activeFilterData4.map(d => `${d.year}-${d.month}-${d.day}`));
-        // Intersección de fechas entre cluster y el filtro activo
-        const intersectionDates = new Set([...clusterDates].filter(date => activeFilterDates4.has(date)));
-        // Filtrar los datos que cumplen con la intersección de ambos filtros
+
+        const selection = svg.selectAll("circle");
+
+        selection
+            .attr("fill", d => kmeans4Colors[d.Kmeans_4])
+            .attr("opacity", d => {
+                const dateKey = `${d.year}-${d.month}-${d.day}`;
+                const inCluster = clusterDates.has(dateKey);
+                const inFilter = activeFilterDates4.has(dateKey);
+
+                if (isClusterFiltered && isTemporalFiltered) {
+                    return (inCluster && inFilter) ? 1 : 0.05;
+                } else if (isClusterFiltered) {
+                    return inCluster ? 1 : 0.05;
+                } else if (isTemporalFiltered) {
+                    return inFilter ? 1 : 0.05;
+                } else {
+                    return 1;
+                }
+            })
+            .attr("stroke", d => {
+                const dateKey = `${d.year}-${d.month}-${d.day}`;
+                const inCluster = clusterDates.has(dateKey);
+                const inFilter = activeFilterDates4.has(dateKey);
+                return (inCluster && inFilter && (isClusterFiltered || isTemporalFiltered)) ? "black" : "none";
+            })
+            .attr("stroke-width", d => {
+                const dateKey = `${d.year}-${d.month}-${d.day}`;
+                const inCluster = clusterDates.has(dateKey);
+                const inFilter = activeFilterDates4.has(dateKey);
+                return (inCluster && inFilter && (isClusterFiltered || isTemporalFiltered)) ? 2 : 0;
+            });
+
+        // Raise selected points to the front
+        selection.filter(d => {
+            const dateKey = `${d.year}-${d.month}-${d.day}`;
+            const inCluster = clusterDates.has(dateKey);
+            const inFilter = activeFilterDates4.has(dateKey);
+            if (isClusterFiltered && isTemporalFiltered) return inCluster && inFilter;
+            if (isClusterFiltered) return inCluster;
+            if (isTemporalFiltered) return inFilter;
+            return false;
+        }).raise();
+
         const intersectionData = filteredClusterData4.filter(d => activeFilterDates4.has(`${d.year}-${d.month}-${d.day}`));
-        svg.selectAll("circle")
-            .attr("fill", d => kmeans4Colors[d.Kmeans_4])  // Mantiene el color original del cluster
-            .attr("opacity", d => (clusterDates.has(`${d.year}-${d.month}-${d.day}`) ||
-                activeFilterDates4.has(`${d.year}-${d.month}-${d.day}`)) ? 1 : 0.3) // Los que no están en ningún filtro se atenúan
-            .attr("stroke", d => intersectionDates.has(`${d.year}-${d.month}-${d.day}`) ? "black" : "none") // Borde rojo si está en ambos filtros
-            .attr("stroke-width", d => intersectionDates.has(`${d.year}-${d.month}-${d.day}`) ? 2 : 0);
-        // **Actualizar gráficos con los datos de la intersección**
         if (intersectionData.length > 0) {
             const selectedDates = intersectionData.map(d => `${d.year}-${d.month}-${d.day}`);
-            const cityFile = intersectionData.length > 0 ? intersectionData[0].city : null;
             handleSelectionUpdate(intersectionData, selectedDates, fechaInicio, fechaFin);
         }
     }
@@ -3077,6 +3246,7 @@ function plotUMAP(data, fechaInicio, fechaFin) {
 
     // Función para filtrar datos por estación
     function filterDataBySeason(season, data) {
+        if (!season) return data;
         const seasonRanges = {
             Primavera: { start: { month: 3, day: 20 }, end: { month: 6, day: 21 } },
             Verano: { start: { month: 6, day: 21 }, end: { month: 9, day: 22 } },
@@ -3085,7 +3255,7 @@ function plotUMAP(data, fechaInicio, fechaFin) {
         };
 
         const range = seasonRanges[season];
-        if (!range) return [];
+        if (!range) return data;
 
         return data.filter(d => {
             const start = new Date(d.year, range.start.month - 1, range.start.day);
@@ -3100,11 +3270,13 @@ function plotUMAP(data, fechaInicio, fechaFin) {
 
     // Función para filtrar datos por mes
     function filterDataByMonth(month, data) {
+        if (!month) return data;
         const monthMapping = {
             Enero: 1, Febrero: 2, Marzo: 3, Abril: 4, Mayo: 5, Junio: 6,
             Julio: 7, Agosto: 8, Septiembre: 9, Octubre: 10, Noviembre: 11, Diciembre: 12
         };
         const monthNumber = monthMapping[month];
+        if (!monthNumber) return data;
         return data.filter(d => d.month === monthNumber);
     }
 
@@ -3114,71 +3286,23 @@ function plotUMAP(data, fechaInicio, fechaFin) {
     const height = container.node().clientHeight || 440; // Default height
 
     const svg = container.append("svg")
-        .attr("transform", "translate(275, -390)") // Desplazamiento hacia la derecha y abajo
-        .attr("width", "45%")
-        .attr("height", "45%")
+        .attr("width", "100%")
+        .attr("height", "100%")
         .attr("viewBox", `0 0 ${width} ${height}`)
-        .style("background", "none") // Fondo transparente
-        .style("position", "relative") // Asegura que el desplazamiento funcione correctamente
-        .style("border", "1px solid black") // Agrega un borde negro de 2px
-        .style("border-radius", "10px") // Bordes redondeados
+        .style("background", "none")
+        .style("position", "relative")
+        .style("border", "1px solid #ddd")
+        .style("border-radius", "10px")
         .on("contextmenu", (event) => event.preventDefault());
-    // Agregar título en la parte superior izquierda
-    svg.append("text")
-        .attr("x", 53) // Posición horizontal (izquierda)
-        .attr("y", 30) // Posición vertical (arriba)
-        .attr("font-size", "30px") // Tamaño de la fuente
-        .attr("font-weight", "bold") // Negrita
-        .attr("fill", "black") // Color del texto
-        .text("Fusion de datos");
 
-    // Agregar un checkbox al lado del título
-    const checkbox = d3.select("#umap-plot-fusion")
-        .append("input")
-        .attr("type", "checkbox")
-        .attr("id", "toggle-umap-fusion")
-        .style("position", "absolute")
-        .style("left", "295px") // Ajusta la posición respecto al contenedor
-        .style("top", "225px") // Ajusta la posición respecto al contenedor
-        .property("checked", false); // Inicia desmarcado
-
-    // Función para resaltar el borde cuando el checkbox esté marcado
-    d3.select("#toggle-umap-fusion").on("change", function () {
-        const isChecked = d3.select(this).property("checked");
-        // Estado inicial bloqueado
-        // Cambiar el borde del SVG dependiendo del estado del checkbox
-        if (isChecked) {
-            svg.style("border", "1px solid #ff6347"); // Borde resaltado con color cuando está seleccionado
-            enableClusterAndAQIControls(); // Habilitar botones de clusters y AQI
-            isGraphLocked = true; // Bloquear gráfica
-            isGraphLocked_boton = false;
-            d3.selectAll(".legend-item-pca, .reset-button-pca")
-                .style("pointer-events", "all")
-                .style("opacity", "1") // Habilitar botones
-                .style("display", "block"); // Mostrar botones de nuevo
-
-
-        } else {
-            svg.style("border", "1px solid black"); // Borde normal cuando no está seleccionado
-            disableClusterAndAQIControls(); // Deshabilitar botones de clusters y AQI
-            isGraphLocked = false; // Desbloquear gráfica
-            isGraphLocked_boton = true;
-            d3.selectAll(".legend-item-pca, .reset-button-pca")
-                .style("pointer-events", "none")
-                .style("opacity", "0.5")
-                .style("display", "none"); // Ocultar botones
-
-            d3.selectAll(".legend-item-pca2, .reset-button-pca2")
-                .style("pointer-events", "all")
-                .style("opacity", "1") // Habilitar botones
-                .style("display", "block"); // Mostrar botones de nuevo
-
-
-
-        }
-    });
-
-    // Función para habilitar los controles de clusters y AQI
+    // Activar controles por defecto para la fusión
+    enableClusterAndAQIControls();
+    isGraphLocked = true;
+    isGraphLocked_boton = false;
+    d3.selectAll(".legend-item-pca, .reset-button-pca")
+        .style("pointer-events", "all")
+        .style("opacity", "1")
+        .style("display", "block");
     function enableClusterAndAQIControls() {
         document.getElementById("cluster-4-btn").disabled = false;
         document.getElementById("cluster-6-btn").disabled = false;
@@ -3196,7 +3320,6 @@ function plotUMAP(data, fechaInicio, fechaFin) {
         document.getElementById("cluster-12-btn").classList.remove("dimmed");
     }
 
-    // Función para deshabilitar los controles de clusters y AQI
     function disableClusterAndAQIControls() {
         document.getElementById("cluster-4-btn").disabled = true;
         document.getElementById("cluster-6-btn").disabled = true;
@@ -3214,10 +3337,6 @@ function plotUMAP(data, fechaInicio, fechaFin) {
         document.getElementById("cluster-12-btn").classList.add("dimmed");
     }
 
-    // Inicializar en el estado deshabilitado
-    disableClusterAndAQIControls();
-
-
     // Grupo para aplicar zoom
     const g = svg.append("g");
 
@@ -3234,7 +3353,7 @@ function plotUMAP(data, fechaInicio, fechaFin) {
     // Colores según el nivel de AQI
     const colorScale = d3.scaleOrdinal()
         .domain([1, 2, 3, 4, 5, 6])
-        .range(['#00E400', '#FFFF00', '#FF7E00', '#FF0000', '#99004c', '#800000']);
+        .range(aqiColors);
 
     // Tooltip
     const tooltip = d3.select("body").append("div")
@@ -3255,17 +3374,19 @@ function plotUMAP(data, fechaInicio, fechaFin) {
         .attr("cx", d => xScale(d[dimCols[0]]))
         .attr("cy", d => yScale(d[dimCols[1]]))
         .attr("r", 6)
-        .attr("fill", d => colorScale(d.AQI))
+        .attr("fill", d => getGlobalAQIColor(d))
         .attr("opacity", 1)
-        .attr("stroke", "none")  // Sin borde inicialmente
+        .attr("stroke", "black")
+        .attr("stroke-width", 0.5)
         // Agregar manejador para el filtro de estación
 
         .on("mouseover", function (event, d) {
+            const calculatedAQI = getGlobalAQILevel(d);
             tooltip.style("visibility", "visible")
                 .html(`
                     <strong>Estación:</strong> ${getStationNameFromCity(d.city)}<br>
                     <strong>Fecha:</strong> ${d.day}/${d.month}/${d.year}<br>
-                    <strong>AQI:</strong> ${d.AQI}
+                    <strong>AQI:</strong> ${calculatedAQI}
                 `);
 
             d3.select(this)
@@ -3456,7 +3577,8 @@ function plotUMAP(data, fechaInicio, fechaFin) {
             .filter(d => selectedSet.has(`${d.year}-${d.month}-${d.day}-${d.station || ''}`))
             .attr("r", 8)
             .attr("stroke", "blue")
-            .attr("stroke-width", 3);
+            .attr("stroke-width", 3)
+            .raise();
     });
 
     // Agregar la leyenda como botones
@@ -3469,130 +3591,123 @@ function plotUMAP(data, fechaInicio, fechaFin) {
         { color: '#800000', label: 'Severo', AQI: 6 },
     ];
 
-    // Crear la leyenda como botones, asegurando que esté delante de otros elementos
-    if (container.select('.legend-pca').empty()) {
-        const legend = container.insert('div', ':first-child')
-            .attr('class', 'legend-pca')
-            .style('display', 'flex')
-            .style('justify-content', 'center')
-            .style('align-items', 'center')
-            .style('position', 'absolute')
-            .style('bottom', '-1%') // Coloca la leyenda en la parte inferior del contenedor
-            .style('left', '4%')
-            .style('width', '90%') // Ajusta el ancho disponible
-            .style('height', 'auto')
-            .style('font-family', 'Arial, sans-serif')
-            .style('font-weight', 'bold')
-            .style('z-index', '1000') // Asegura que esté encima de cualquier cosa
-            .style('pointer-events', 'all') // Permite interacciones con los botones
-            .style('border-radius', '10px')
-            .style('padding', '10px') // Espaciado interno para los botones
-            .style('text-align', 'center');  // Centrar el texto
+    // Crear la leyenda como botones, asegurando que esté dentro del sidebar
+    d3.select('.filter-sidebar').select('.legend-pca').remove();
 
-        legendData.forEach((item, index) => {
-            const legendButton = legend.append('button')
-                .attr('class', 'legend-item-pca')
-                .style('background-color', item.color)
-                .style('padding', '3px 10px')
-                .style('margin', '0 4px')
-                .style('border-radius', '5px')
-                .style('color', index > 3 ? 'white' : 'black') // Texto blanco para "Malo" y "Severo"
-                .style('border', 'none')
-                .style('cursor', 'pointer')
-                .style('font-weight', 'bold')
-                .style('text-align', 'center')  // Centrar el texto
-                .style('font-size', '11px')
-                .style('box-shadow', '0px 2px 5px rgba(0, 0, 0, 0.3)') // Sombra para resaltar los botones
-                .text(item.label);
+    const legend = d3.select('.filter-sidebar').append('div')
+        .attr('class', 'legend-pca filter-group')
+        .style('display', 'flex')
+        .style('flex-direction', 'column')
+        .style('gap', '3px')
+        .style('padding', '8px 0')
+        .style('height', 'auto')
+        .style('font-family', 'Arial, sans-serif')
+        .style('font-weight', 'bold')
+        .style('text-align', 'left');
 
-            // Cambiar la opacidad y agregar borde en hover
-            legendButton
-                .on('mouseover', () => {
-                    legendButton.style('box-shadow', '0px 0px 5px 2px rgba(0,0,0,0.5)');
-                })
-                .on('mouseout', () => {
-                    if (!legendButton.classed('selected')) {
-                        legendButton.style('box-shadow', 'none');
-                    }
-                });
-
-            // Filtrar puntos al hacer clic
-            legendButton.on('click', () => {
-                // Quitar la sombra de todos los botones y restablecer tamaño
-                if (isGraphLocked_boton) return; // Evitar interacción si está bloqueado
-
-                legend.selectAll('button')
-                    .style('box-shadow', 'none')
-                    .style('transform', 'scale(1)')
-                    .style('opacity', '0.7')  // Reducir opacidad de los otros botones
-                    .classed('selected', false);
-
-                // Agregar la clase 'selected' al botón clickeado para aplicar la sombra
-                legendButton.style('box-shadow', '0px 0px 5px 2px rgba(0,0,0,0.5)')
-                    .style('transform', 'scale(1.1)') // Hacer que el botón crezca un poco
-                    .style('opacity', '1')  // El botón seleccionado no pierde opacidad
-                    .classed('selected', true);
-
-                const selectedAQI = index + 1; // AQI corresponde al índice + 1
-
-                // Filtrar puntos en el gráfico UMAP
-                svg.selectAll('circle')
-                    .attr('opacity', d => (d.AQI === selectedAQI ? 1 : 0.1));
-
-                // Filtrar datos para otras visualizaciones
-                const selectedData = data.filter(d => d.AQI === selectedAQI);
-                const selectedDates = selectedData.map(d => `${d.year}-${d.month}-${d.day}`);
-
-                // Actualizar otras gráficas con los datos seleccionados
-                // Actualizar otras gráficas con los datos seleccionados
-                if (typeof updateTimeSeriesChart === 'function') updateTimeSeriesChart(selectedData[0]?.city, fechaInicio, fechaFin, selectedDates);
-                if (typeof updateCorrelationMatrixnew === 'function') updateCorrelationMatrixnew(selectedDates);
-                if (typeof drawThemeRiver === 'function') drawThemeRiver(selectedData[0]?.city, selectedDates);
-                if (typeof updateRadialChartWithSelection === 'function') updateRadialChartWithSelection(selectedData, fechaInicio, fechaFin);
-
-                // Highlight in other detailed UMAPs
-                plotUMAPcontCluster(filteredDataCont, fechaInicio, fechaFin, selectedDates, "blue");
-                plotUMAPmetCluster(filterDataMet, fechaInicio, fechaFin, selectedDates, "blue");
-            });
-        });
-
-        // Agregar un botón para resetear el filtro
-        legend.append('button')
-            .attr('class', 'reset-button-pca')
-            .style('background-color', '#ccc')
-            .style('padding', '5px 15px')
-            .style('margin', '0 5px')
-            .style('border-radius', '5px')
-            .style('color', 'black')
+    legendData.forEach((item, index) => {
+        const legendButton = legend.append('button')
+            .attr('class', 'legend-item-pca')
+            .style('background-color', item.color)
+            .style('padding', '4px 10px')
+            .style('margin', '2px 0') // NEW: Vertical spacing
+            .style('border-radius', '4px')
+            .style('width', '100%')
+            .style('min-width', '70px')
+            .style('color', index > 3 ? 'white' : 'black')
             .style('border', 'none')
             .style('cursor', 'pointer')
-            .style('font-size', '12px')
             .style('font-weight', 'bold')
-            .style('box-shadow', '0px 2px 5px rgba(0, 0, 0, 0.3)') // Sombra para resaltar el botón
-            .text('Resetear')
-            .on('mouseover', function () {
-                d3.select(this).style('box-shadow', '0px 0px 5px 2px rgba(0,0,0,0.5)');
-            })
-            .on('mouseout', function () {
-                d3.select(this).style('box-shadow', 'none');
-            })
-            .on('click', () => {
-                // Resetear opacidad de todos los puntos
-                svg.selectAll('circle')
-                    .attr('opacity', 1);
+            .style('text-align', 'center')
+            .style('font-size', '9px')
+            .style('box-shadow', '0px 1px 3px rgba(0, 0, 0, 0.2)')
+            .text(item.label);
 
-                // Eliminar la sombra de todos los botones y quitar la clase 'selected'
-                legend.selectAll('button')
-                    .style('box-shadow', 'none')
-                    .style('transform', 'scale(1)')
-                    .style('opacity', '1')  // Restaurar opacidad original
-                    .classed('selected', false);
-                updateAll();
+        // Cambiar la opacidad y agregar borde en hover
+        legendButton
+            .on('mouseover', () => {
+                legendButton.style('box-shadow', '0px 0px 5px 2px rgba(0,0,0,0.5)');
+            })
+            .on('mouseout', () => {
+                if (!legendButton.classed('selected')) {
+                    legendButton.style('box-shadow', 'none');
+                }
             });
-    }
 
+        // Filtrar puntos al hacer clic
+        legendButton.on('click', () => {
+            // Quitar la sombra de todos los botones y restablecer tamaño
+            if (isGraphLocked_boton) return; // Evitar interacción si está bloqueado
+
+            legend.selectAll('button')
+                .style('box-shadow', 'none')
+                .style('transform', 'scale(1)')
+                .style('opacity', '0.7')  // Reducir opacidad de los otros botones
+                .classed('selected', false);
+
+            // Agregar la clase 'selected' al botón clickeado para aplicar la sombra
+            legendButton.style('box-shadow', '0px 0px 5px 2px rgba(0,0,0,0.5)')
+                .style('transform', 'scale(1.1)') // Hacer que el botón crezca un poco
+                .style('opacity', '1')  // El botón seleccionado no pierde opacidad
+                .classed('selected', true);
+
+            const selectedAQI = index + 1; // AQI corresponde al índice + 1
+
+            // Filtrar puntos en el gráfico UMAP
+            svg.selectAll('circle')
+                .attr('opacity', d => (getGlobalAQILevel(d) === selectedAQI ? 1 : 0.05));
+
+            svg.selectAll('circle')
+                .filter(d => getGlobalAQILevel(d) === selectedAQI)
+                .raise();
+
+            // Filtrar datos para otras visualizaciones
+            const selectedData = data.filter(d => getGlobalAQILevel(d) === selectedAQI);
+            const selectedDates = selectedData.map(d => `${d.year}-${d.month}-${d.day}`);
+
+            // Actualizar otras gráficas con los datos seleccionados
+            if (typeof updateTimeSeriesChart === 'function') updateTimeSeriesChart(selectedData[0]?.city, fechaInicio, fechaFin, selectedDates);
+            if (typeof updateCorrelationMatrixnew === 'function') updateCorrelationMatrixnew(selectedDates);
+            if (typeof drawThemeRiver === 'function') drawThemeRiver(selectedData[0]?.city, selectedDates);
+            if (typeof updateRadialChartWithSelection === 'function') updateRadialChartWithSelection(selectedData, fechaInicio, fechaFin);
+        });
+    });
+
+    // Agregar un botón para resetear el filtro
+    legend.append('button')
+        .attr('class', 'reset-button-pca')
+        .style('background-color', '#ccc')
+        .style('padding', '5px 10px')
+        .style('margin', '5px 0 0 0')
+        .style('border-radius', '4px')
+        .style('width', '100%')
+        .style('color', 'black')
+        .style('border', 'none')
+        .style('cursor', 'pointer')
+        .style('font-size', '11px')
+        .style('font-weight', 'bold')
+        .style('box-shadow', '0px 1px 3px rgba(0, 0, 0, 0.2)')
+        .text('Resetear')
+        .on('mouseover', function () {
+            d3.select(this).style('box-shadow', '0px 0px 5px 2px rgba(0,0,0,0.5)');
+        })
+        .on('mouseout', function () {
+            d3.select(this).style('box-shadow', 'none');
+        })
+        .on('click', () => {
+            // Resetear opacidad de todos los puntos
+            svg.selectAll('circle')
+                .attr('opacity', 1);
+
+            // Eliminar la sombra de todos los botones y quitar la clase 'selected'
+            legend.selectAll('button')
+                .style('box-shadow', 'none')
+                .style('transform', 'scale(1)')
+                .style('opacity', '1')  // Restaurar opacidad original
+                .classed('selected', false);
+            updateAll();
+        });
 }
-
 
 
 function plotUMAPmetCluster(data, fechaInicio, fechaFin, clusterDates, clusterColor) {
@@ -3667,8 +3782,8 @@ function plotUMAPmetCluster(data, fechaInicio, fechaFin, clusterDates, clusterCo
         .attr("r", 5)
         .attr("fill", d => clusterDateSet.has(`${+d.year}-${+d.month}-${+d.day}`) ? clusterColor : "steelblue") // Usar el color del cluster
         .attr("opacity", d => clusterDateSet.has(`${+d.year}-${+d.month}-${+d.day}`) ? 1 : 0.2) // Opacidad baja si no está en clusterDates
-        .attr("stroke", d => clusterDateSet.has(`${+d.year}-${+d.month}-${+d.day}`) ? "black" : "none") // Borde negro si está en clusterDates
-        .attr("stroke-width", d => clusterDateSet.has(`${+d.year}-${+d.month}-${+d.day}`) ? 1 : 0)
+        .attr("stroke", d => clusterDateSet.has(`${+d.year}-${+d.month}-${+d.day}`) ? "black" : "black") // Borde negro siempre
+        .attr("stroke-width", d => clusterDateSet.has(`${+d.year}-${+d.month}-${+d.day}`) ? 1 : 0.5)
         .on("mouseover", function (event, d) {
             tooltip.style("visibility", "visible")
                 .html(`
@@ -3840,8 +3955,8 @@ function plotUMAPfusionCluster(data, fechaInicio, fechaFin, clusterDates, cluste
         .attr("r", 5)
         .attr("fill", d => clusterDateSet.has(`${+d.year}-${+d.month}-${+d.day}`) ? clusterColor : "steelblue") // Usar el color del cluster
         .attr("opacity", d => clusterDateSet.has(`${+d.year}-${+d.month}-${+d.day}`) ? 1 : 0.2) // Opacidad baja si no está en clusterDates
-        .attr("stroke", d => clusterDateSet.has(`${+d.year}-${+d.month}-${+d.day}`) ? "black" : "none") // Borde negro si está en clusterDates
-        .attr("stroke-width", d => clusterDateSet.has(`${+d.year}-${+d.month}-${+d.day}`) ? 1 : 0)
+        .attr("stroke", d => clusterDateSet.has(`${+d.year}-${+d.month}-${+d.day}`) ? "black" : "black") // Borde negro siempre
+        .attr("stroke-width", d => clusterDateSet.has(`${+d.year}-${+d.month}-${+d.day}`) ? 1 : 0.5)
         .on("mouseover", function (event, d) {
             tooltip.style("visibility", "visible")
                 .html(`
@@ -4024,8 +4139,8 @@ function plotUMAPcontCluster(data, fechaInicio, fechaFin, clusterDates, clusterC
         .attr("r", 6)
         .attr("fill", d => clusterDateSet.has(`${+d.year}-${+d.month}-${+d.day}`) ? clusterColor : "steelblue")
         .attr("opacity", d => clusterDateSet.has(`${+d.year}-${+d.month}-${+d.day}`) ? 1 : 0.2)
-        .attr("stroke", d => clusterDateSet.has(`${+d.year}-${+d.month}-${+d.day}`) ? "black" : "none")
-        .attr("stroke-width", d => clusterDateSet.has(`${+d.year}-${+d.month}-${+d.day}`) ? 1 : 0)
+        .attr("stroke", "black")
+        .attr("stroke-width", d => clusterDateSet.has(`${+d.year}-${+d.month}-${+d.day}`) ? 1 : 0.5)
         .on("mouseover", function (event, d) {
             tooltip.style("visibility", "visible")
                 .html(`
@@ -4282,10 +4397,7 @@ function plotUMAPcont(data, fechaInicio, fechaFin) {
     });
 
 
-    // Evento para el botón de cluster-6
     document.getElementById("cluster-6-btn").addEventListener("click", function () {
-        if (isGraphLocked) return; // Si la gráfica está bloqueada, salir de la función.
-        if (isGraphLocked3) return; // Si la gráfica está bloqueada, salir de la función.
 
         document.getElementById("cluster-6-btn").classList.remove("dimmed");
         document.getElementById("cluster-6-select").classList.remove("dimmed");
@@ -4311,9 +4423,7 @@ function plotUMAPcont(data, fechaInicio, fechaFin) {
     let filteredClusterData = data;
     let activeFilterData = data;  // Solo un filtro activo a la vez (estación, año o mes)
 
-    // Evento para el selector de cluster-12
     document.getElementById("cluster-12-select").addEventListener("change", function () {
-        if (isGraphLocked || isGraphLocked3) return;
         const selectedCluster = parseInt(this.value.replace('Cluster ', '')) - 1;
         filteredClusterData = data.filter(d => d.Kmeans_12 === selectedCluster);
         // Obtener las fechas únicas del cluster seleccionado
@@ -4322,12 +4432,8 @@ function plotUMAPcont(data, fechaInicio, fechaFin) {
         const clusterColor = kmeans12Colors[selectedCluster];
         updateVisualization();
         updateClusterDisplay(12, selectedCluster, kmeans12Colors);
-        plotUMAPfusionCluster(filteredDataCont, fechaInicio, fechaFin, clusterDates, clusterColor);
-        plotUMAPmetCluster(filterDataMet, fechaInicio, fechaFin, clusterDates, clusterColor);
     });
-    // Evento para el selector de cluster-3
     document.getElementById("cluster-3-select").addEventListener("change", function () {
-        if (isGraphLocked || isGraphLocked3) return;
         const selectedCluster = parseInt(this.value.replace('Cluster ', '')) - 1;
         filteredClusterData = data.filter(d => d.Kmeans_3 === selectedCluster);
         // Obtener las fechas únicas del cluster seleccionado
@@ -4336,13 +4442,8 @@ function plotUMAPcont(data, fechaInicio, fechaFin) {
         const clusterColor = kmeans3Colors[selectedCluster];
         updateVisualization();
         updateClusterDisplay(3, selectedCluster, kmeans3Colors);
-        plotUMAPfusionCluster(filteredDataCont, fechaInicio, fechaFin, clusterDates, clusterColor);
-        plotUMAPmetCluster(filterDataMet, fechaInicio, fechaFin, clusterDates, clusterColor);
     });
-    // Evento para el selector de cluster-4
     document.getElementById("cluster-4-select").addEventListener("change", function () {
-        if (isGraphLocked) return; // Si la gráfica está bloqueada, salir de la función.
-        if (isGraphLocked3) return; // Si la gráfica está bloqueada, salir de la función.
 
 
         const selectedCluster = parseInt(this.value.replace('Cluster ', '')) - 1;
@@ -4360,18 +4461,13 @@ function plotUMAPcont(data, fechaInicio, fechaFin) {
 
         updateVisualization();
         updateClusterDisplay(4, selectedCluster, kmeans4Colors);
-        plotUMAPfusionCluster(filterDataFusion, fechaInicio, fechaFin, clusterDates, clusterColor);
-        plotUMAPmetCluster(filterDataMet, fechaInicio, fechaFin, clusterDates, clusterColor);
     });
 
 
     let filteredClusterData2 = data;
     let activeFilterData2 = data;  // Solo un filtro activo a la vez (estación, año o mes)
 
-    // Evento para el selector de cluster-6
     document.getElementById("cluster-6-select").addEventListener("change", function () {
-        if (isGraphLocked) return; // Si la gráfica está bloqueada, salir de la función.
-        if (isGraphLocked3) return; // Si la gráfica está bloqueada, salir de la función.
         const selectedCluster = parseInt(this.value.replace('Cluster ', '')) - 1;
         filteredClusterData2 = data.filter(d => d.Kmeans_6 === selectedCluster);
 
@@ -4387,14 +4483,9 @@ function plotUMAPcont(data, fechaInicio, fechaFin) {
 
         updateVisualization2();
         updateClusterDisplay(6, selectedCluster, kmeans6Colors);
-        plotUMAPfusionCluster(filterDataFusion, fechaInicio, fechaFin, clusterDates, clusterColor);
-        plotUMAPmetCluster(filterDataMet, fechaInicio, fechaFin, clusterDates, clusterColor);
     });
 
-    // Evento para el botón AQI
     document.getElementById("aqi-btn").addEventListener("click", function () {
-        if (isGraphLocked) return; // Si la gráfica está bloqueada, salir de la función.
-        if (isGraphLocked3) return; // Si la gráfica está bloqueada, salir de la función.
 
 
         document.getElementById("aqi-btn").classList.remove("dimmed");
@@ -4441,9 +4532,7 @@ function plotUMAPcont(data, fechaInicio, fechaFin) {
         }
     }
 
-    // Evento para el filtro de estación del año
     document.getElementById('station-filter').addEventListener('change', (event) => {
-        if (isGraphLocked || isGraphLocked3) return;
 
         const selectedSeason = event.target.value;
         activeFilterData = filterDataBySeason(selectedSeason, data); // Actualiza el único filtro activo
@@ -4456,9 +4545,7 @@ function plotUMAPcont(data, fechaInicio, fechaFin) {
         updateFilterOpacity('station-filter');
     });
 
-    // Evento para el filtro de año
     document.getElementById('year-filter').addEventListener('change', (event) => {
-        if (isGraphLocked || isGraphLocked3) return;
 
         const selectedYear = parseInt(event.target.value, 10);
         activeFilterData = data.filter(d => d.year === selectedYear); // Solo un filtro activo a la vez
@@ -4471,9 +4558,7 @@ function plotUMAPcont(data, fechaInicio, fechaFin) {
         updateFilterOpacity('year-filter');
     });
 
-    // Evento para el filtro de mes
     document.getElementById('month-filter').addEventListener('change', (event) => {
-        if (isGraphLocked || isGraphLocked3) return;
 
         const selectedMonth = event.target.value;
         activeFilterData = filterDataByMonth(selectedMonth, data); // Solo un filtro activo a la vez
@@ -6221,7 +6306,7 @@ async function drawThemeRiver(cityFile, dates, preloadedData) {
 
 //GRAFICA DE DISTRIBUCION TEMPORAL GLOBAL
 // Variables globales
-let activeGraph = null; // Track the currently active graph
+let activeGraph = "distribucion-global-graph1"; // Track the currently active graph - Initialized to the first global graph
 let globallySelectedPoints = new Set(); // Global set of selected points
 currentFilename = 'China_1000.csv'; // Inicializar con un valor por defecto
 
@@ -6250,16 +6335,6 @@ const selectionStates = {
         points: [], selectedData: [], isDrawing: false, data: [], context: null, canvas: null,
         xScale: null, yScale: null, scale: 1, translateX: 0, translateY: 0,
         currentClustering: 'Kmeans_3', selectedCluster: null, currentVisualization: 'PCA'
-    },
-    "distribucion-global-graph2": {
-        points: [], selectedData: [], isDrawing: false, data: [], context: null, canvas: null,
-        xScale: null, yScale: null, scale: 1, translateX: 0, translateY: 0,
-        currentClustering: 'Kmeans_3', selectedCluster: null, currentVisualization: 'PCA'
-    },
-    "distribucion-global-graph3": {
-        points: [], selectedData: [], isDrawing: false, data: [], context: null, canvas: null,
-        xScale: null, yScale: null, scale: 1, translateX: 0, translateY: 0,
-        currentClustering: 'Kmeans_3', selectedCluster: null, currentVisualization: 'PCA'
     }
 };
 
@@ -6283,8 +6358,6 @@ function updateButtonText(method) {
 // Datos seleccionados para series temporales
 let selectedDataForTimeSeries = null;
 
-const aqiColors = ['#00e400', '#ff0', '#ff7e00', '#f00', '#99004c', '#7e0023'];
-const meteorologicalColor = 'blue';
 
 // Función para calcular la categoría del AQI genérica
 function calculateAQICategory(value) {
@@ -6366,58 +6439,54 @@ document.addEventListener('DOMContentLoaded', function () {
         const select = document.getElementById(clusterButtonsConfig[btnId].selectId);
 
         btn.addEventListener('click', function () {
-            if (activeGraph) {
-                const state = selectionStates[activeGraph];
-                const method = document.querySelector('input[name="clustering"]:checked').value;
-                const prefix = method === 'kmeans' ? 'Kmeans' : 'HDBSCAN';
-                state.currentClustering = `${prefix}_${btnId.split('-')[1]}`; // Ejemplo: HDBSCAN_3
-                state.selectedCluster = null;
-                globallySelectedPoints = new Set();
-                updateSelectOptions(select, state.currentClustering);
-                select.disabled = false;
-                select.value = "";
-                updateCharts();
-            }
+            const state = selectionStates[activeGraph];
+            const method = document.querySelector('input[name="clustering"]:checked').value;
+            const prefix = method === 'kmeans' ? 'Kmeans' : 'HDBSCAN';
+            state.currentClustering = `${prefix}_${btnId.split('-')[1]}`; // Ejemplo: HDBSCAN_3
+            state.selectedCluster = null;
+            globallySelectedPoints = new Set();
+            updateSelectOptions(select, state.currentClustering);
+            select.disabled = false;
+            select.value = "";
+            updateCharts();
         });
         select.addEventListener('change', function () {
-            if (activeGraph) {
-                const state = selectionStates[activeGraph];
-                state.selectedCluster = this.value ? parseInt(this.value) : null;
-                globallySelectedPoints = new Set();
+            const state = selectionStates[activeGraph];
+            state.selectedCluster = this.value ? parseInt(this.value) : null;
+            globallySelectedPoints = new Set();
 
-                const filteredData = state.data.filter(d =>
-                    d[state.currentClustering] === state.selectedCluster &&
-                    (!startDateFilter || d.date >= startDateFilter) &&
-                    (!endDateFilter || d.date <= endDateFilter)
-                );
-                selectedDataForTimeSeries = filteredData;
-                globallySelectedPoints = new Set(filteredData.map(d => d.date.toISOString() + "_" + d.station));
+            const filteredData = state.data.filter(d =>
+                d[state.currentClustering] === state.selectedCluster &&
+                (!startDateFilter || d.date >= startDateFilter) &&
+                (!endDateFilter || d.date <= endDateFilter)
+            );
+            selectedDataForTimeSeries = filteredData;
+            globallySelectedPoints = new Set(filteredData.map(d => d.date.toISOString() + "_" + d.station));
 
-                updateCharts();
-                updateStationBarCharts(); // Actualizar gráfica de barras con datos filtrados
+            updateCharts();
+            updateStationBarCharts(); // Actualizar gráfica de barras con datos filtrados
 
-                // --- Build zero-padded ISO date strings for consistent comparison ---
-                const selectedDates = [...new Set(
-                    filteredData
-                        .filter(d => d.date instanceof Date)
-                        .map(d => `${d.date.getFullYear()}-${d.date.getMonth() + 1}-${d.date.getDate()}`)
-                )];
-                const cityFile = (filteredData.length > 0 && filteredData[0].city)
-                    ? filteredData[0].city
-                    : currentFilename;
-                const fechaInicio = document.getElementById('fecha-inicio')?.value || '';
-                const fechaFin = document.getElementById('fecha-fin')?.value || '';
+            // --- Build zero-padded ISO date strings for consistent comparison ---
+            const selectedDates = [...new Set(
+                filteredData
+                    .filter(d => d.date instanceof Date)
+                    .map(d => `${d.date.getFullYear()}-${d.date.getMonth() + 1}-${d.date.getDate()}`)
+            )];
+            const cityFile = (filteredData.length > 0 && filteredData[0].city)
+                ? filteredData[0].city
+                : currentFilename;
+            const fechaInicio = document.getElementById('fecha-inicio')?.value || '';
+            const fechaFin = document.getElementById('fecha-fin')?.value || '';
 
-                // Propagate ONLY to specific visualizations
-                if (typeof updateStationBarCharts === 'function')
-                    updateStationBarCharts(); // Linked to distribucion-espacio-temporal
+            // Propagate ONLY to specific visualizations
+            if (typeof updateStationBarCharts === 'function')
+                updateStationBarCharts(); // Linked to distribucion-espacio-temporal
 
-                // Llamar a la función plotTimeSeries para cada atributo relevante
-                const attributes = ["PM2_5", "PM10", "SO2", "NO2", "CO", "O3", "TEMP", "PRES", "DEWP", "RAIN"];
-                attributes.forEach(attr => {
-                    plotTimeSeries(attr, filteredData); // Linked to series-temporales-global
-                });
-            }
+            // Llamar a la función plotTimeSeries para cada atributo relevante
+            const attributes = ["PM2_5", "PM10", "SO2", "NO2", "CO", "O3", "TEMP", "PRES", "DEWP", "RAIN"];
+            attributes.forEach(attr => {
+                plotTimeSeries(attr, filteredData); // Linked to series-temporales-global
+            });
         });
     });
 
@@ -6473,13 +6542,11 @@ function updateSelectOptions(select, clustering) {
 // Inicializar gráficos
 function initializeCharts() {
     setupChart("fusion", currentFilename, "distribucion-global-graph1");
-    setupChart("contaminacion", currentFilename, "distribucion-global-graph2");
-    setupChart("meteorologia", currentFilename, "distribucion-global-graph3");
 }
 
 // Cargar datos y actualizar gráficos
 function loadAndUpdateCharts() {
-    ["distribucion-global-graph1", "distribucion-global-graph2", "distribucion-global-graph3"].forEach(graphId => {
+    ["distribucion-global-graph1"].forEach(graphId => {
         const state = selectionStates[graphId];
         state.data = [];
         state.selectedData = [];
@@ -6493,7 +6560,7 @@ function loadAndUpdateCharts() {
 
 // Actualizar gráficos sin recargar datos
 function updateCharts() {
-    ["distribucion-global-graph1", "distribucion-global-graph2", "distribucion-global-graph3"].forEach(graphId => {
+    ["distribucion-global-graph1"].forEach(graphId => {
         const state = selectionStates[graphId];
         if (state.context && state.data.length > 0) {
             renderChart(graphId, state.data);
@@ -6537,30 +6604,7 @@ function setupChart(tipo, filename, graphId) {
 
     loadChartData(graphId);
 
-    canvas.on("click", function (event) {
-        if (!state.isDrawing && !isPanning) {
-            activeGraph = graphId;
-            ["distribucion-global-graph1", "distribucion-global-graph2", "distribucion-global-graph3"].forEach(id => {
-                const graphState = selectionStates[id];
-                graphState.canvas.style("border", id === activeGraph ? "2px solid red" : "1px solid black");
-            });
 
-            const clusterButtonsConfig = {
-                'cluster-3-btn2': { clustering: 'Kmeans_3', selectId: 'cluster-3-select2' },
-                'cluster-4-btn2': { clustering: 'Kmeans_4', selectId: 'cluster-4-select2' },
-                'cluster-6-btn2': { clustering: 'Kmeans_6', selectId: 'cluster-6-select2' },
-                'cluster-12-btn2': { clustering: 'Kmeans_12', selectId: 'cluster-12-select2' }
-            };
-            Object.values(clusterButtonsConfig).forEach(item => {
-                const select = document.getElementById(item.selectId);
-                select.disabled = true;
-                if (state.currentClustering === item.clustering) {
-                    select.disabled = false;
-                    select.value = state.selectedCluster !== null ? state.selectedCluster : "";
-                }
-            });
-        }
-    });
 
     // Eventos de interacción
     canvas.on("mousedown", function (event) {
@@ -6732,12 +6776,10 @@ function loadChartData(graphId) {
 // Funciones de inicialización y actualización
 function initializeCharts() {
     setupChart("fusion", currentFilename, "distribucion-global-graph1");
-    setupChart("contaminacion", currentFilename, "distribucion-global-graph2");
-    setupChart("meteorologia", currentFilename, "distribucion-global-graph3");
 }
 
 function loadAndUpdateCharts() {
-    ["distribucion-global-graph1", "distribucion-global-graph2", "distribucion-global-graph3"].forEach(graphId => {
+    ["distribucion-global-graph1"].forEach(graphId => {
         const state = selectionStates[graphId];
         state.data = [];
         state.selectedData = [];
@@ -6750,7 +6792,7 @@ function loadAndUpdateCharts() {
 }
 
 function updateCharts() {
-    ["distribucion-global-graph1", "distribucion-global-graph2", "distribucion-global-graph3"].forEach(graphId => {
+    ["distribucion-global-graph1"].forEach(graphId => {
         const state = selectionStates[graphId];
         if (state.context && state.data.length > 0) {
             renderChart(graphId, state.data);
@@ -6978,16 +7020,16 @@ function updateStationBarCharts() {
             .style("display", "flex")
             .style("flex-direction", "column");
 
-        const targetBarHeight = 35; 
+        const targetBarHeight = 35;
         const marginBars = { top: 2, right: 0, bottom: 2, left: 0 };
-        const svgHBars   = targetBarHeight + marginBars.top + marginBars.bottom;
-        const svgW       = 800;
-        const W          = svgW - marginBars.left - marginBars.right;
-        const H          = targetBarHeight;
+        const svgHBars = targetBarHeight + marginBars.top + marginBars.bottom;
+        const svgW = 800;
+        const W = svgW - marginBars.left - marginBars.right;
+        const H = targetBarHeight;
 
         // SVG para las BARRAS (con su borde de CSS)
         const svgBars = chartWrapper.append("svg").attr("width", svgW).attr("height", svgHBars);
-        const gBars   = svgBars.append("g").attr("transform", `translate(${marginBars.left},${marginBars.top})`);
+        const gBars = svgBars.append("g").attr("transform", `translate(${marginBars.left},${marginBars.top})`);
 
         // Datos: un punto por mes
         const barData = months.map(mo => ({
@@ -7007,7 +7049,7 @@ function updateStationBarCharts() {
             .padding(0.04);
 
         const yScale = d3.scaleLinear()
-            .domain([0, 31]) 
+            .domain([0, 31])
             .range([H, 0]);
 
         // Fondo suave por temporada
@@ -7040,7 +7082,7 @@ function updateStationBarCharts() {
             .on("mouseover", function (event, d) {
                 const aqiTxt = d.aqiAvg === 0 ? "Sin datos" : d.aqiAvg;
                 const dS = d.start.toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' });
-                const dE = d.end.toLocaleDateString('es-ES',   { day: 'numeric', month: 'short', year: 'numeric' });
+                const dE = d.end.toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' });
                 tooltip.style("visibility", "visible")
                     .html(`<strong>País:</strong> ${country}<br>
                            <strong>Estación:</strong> ${name}<br>
@@ -7052,7 +7094,7 @@ function updateStationBarCharts() {
             })
             .on("mousemove", function (event) {
                 tooltip.style("top", (event.pageY - 10) + "px")
-                       .style("left", (event.pageX + 15) + "px");
+                    .style("left", (event.pageX + 15) + "px");
             })
             .on("mouseout", function () { tooltip.style("visibility", "hidden"); })
             .on("click", function (event, d) {
@@ -7088,11 +7130,11 @@ function updateStationBarCharts() {
         // Eje X y Años (solo última estación, en un SEGUNDO SVG sin borde)
         if (isLast) {
             const marginLabels = { top: 5, right: 0, bottom: 5, left: 0 };
-            const svgHLabels   = 25; 
+            const svgHLabels = 25;
             const svgLabels = chartWrapper.append("svg")
                 .attr("width", svgW)
                 .attr("height", svgHLabels);
-            const gLabels   = svgLabels.append("g")
+            const gLabels = svgLabels.append("g")
                 .attr("transform", `translate(${marginLabels.left},${marginLabels.top})`);
 
             // Quitar el borde explícitamente
