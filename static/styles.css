@@ -719,18 +719,17 @@ select {
 /* ESTILOS DE LAS NUEVAS GRAFICAS */
 
 #distribucion-global {
-    height: 120.7%;
     width: 26%;
     position: absolute;
-    /* Cambia a posición absoluta */
     top: 1%;
-    /* Ajusta la posición vertical */
     left: 109.15%;
-    /* Ajusta la posición horizontal */
     background-color: #fff;
-    /* Fondo blanco para la sección de visualización */
     border: 1px solid #333;
     border-radius: 3px;
+    padding: 15px;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
 }
 
 .controls-container {
@@ -747,17 +746,12 @@ select {
     gap: 5px;
 }
 
-#distribucion-global-graph1,
-#distribucion-global-graph2,
-#distribucion-global-graph3 {
-    margin-bottom: -20px;
-    margin-top: -10px;
-    height: 97.7%;
-    width: 30.5%;
+#distribucion-global-graph1 {
+    width: 100%;
+    height: 100%;
+    min-height: 250px;
     position: relative;
-    top: 0;
-    margin-left: 30px;
-    /* Ajustar el margen derecho para alineación */
+    margin: 0;
 }
 
 .graph-title {
@@ -1084,9 +1078,201 @@ select {
 
 #cluster-12-btn2 {
     background-color: #a6cee3;
-
 }
 
 #cluster-12-btn2:hover {
     background-color: #7fc0e4;
+}
+
+/* --- ESTILOS PARA LA SECCIÓN "Fusion de Datos" (umap-reduccion) --- */
+.top-filter-bar {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 30px;
+    /* Evita que el contenido quede debajo del título diagonal */
+    margin-bottom: 10px;
+    border-bottom: 1px solid #ddd;
+    padding-bottom: 10px;
+    padding-left: 10px;
+}
+
+.filter-item-aqi-top {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.filter-item-options-inline {
+    display: flex;
+    gap: 10px;
+    font-size: 11px;
+}
+
+.filter-clusters-horizontal {
+    display: flex;
+    gap: 4px;
+    flex-wrap: nowrap;
+    justify-content: space-between;
+    width: 100%;
+}
+
+.filter-clusters-horizontal .filter-item-cluster {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    flex: 1;
+    /* Ocupa el espacio disponible proporcionalmente */
+}
+
+.filter-clusters-horizontal .filter-item-cluster button {
+    font-size: 9px;
+    padding: 3px 4px;
+    min-width: unset;
+    white-space: nowrap;
+}
+
+.filter-clusters-horizontal .filter-item-cluster select {
+    font-size: 9px;
+    padding: 2px;
+    flex: 1;
+    /* El select ocupa la porción restante */
+    min-width: 0;
+    /* Previene overflow */
+}
+
+.umap-main-layout {
+    display: flex;
+    height: calc(100% - 110px);
+    /* Ocupar el espacio restante */
+    width: 100%;
+}
+
+.filter-sidebar {
+    width: 110px;
+    min-width: 110px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    border-right: 1px solid #ddd;
+    padding-right: 10px;
+    padding-left: 10px;
+    overflow-y: auto;
+}
+
+.filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.filter-group .filter-item {
+    display: flex;
+    flex-direction: column;
+}
+
+.filter-group .filter-item select {
+    width: 100%;
+    padding: 3px;
+    font-size: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+
+#umap-plot-container {
+    flex: 1;
+    /* Ocupa el espacio restante horizontalmente */
+    position: relative;
+    padding-left: 10px;
+    padding-right: 10px;
+    min-width: 0;
+    display: flex;
+}
+
+#umap-plot-fusion {
+    width: 100%;
+    height: 100%;
+    position: relative;
+}
+
+/* --- ESTILOS PARA LA SECCIÓN "Distribución Temporal Global" --- */
+.global-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 40px;
+    /* Para evitar colisión con title-banner */
+    margin-bottom: 15px;
+}
+
+.controls-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 11px;
+}
+
+.group-label {
+    font-weight: bold;
+    font-size: 11px;
+    min-width: 65px;
+    width: auto;
+}
+
+.selection-section {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    margin-bottom: 15px;
+    border-top: 1px solid #eee;
+    padding-top: 15px;
+}
+
+.date-filter-inline {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 11px;
+}
+
+.date-filter-inline input[type="date"] {
+    padding: 2px;
+    font-size: 10px;
+}
+
+.date-filter-inline button {
+    margin-left: auto;
+}
+
+.clusters-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+.cluster-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.cluster-item select {
+    width: 100%;
+    padding: 3px;
+    font-size: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+
+.cluster-item button {
+    min-width: 70px;
+}
+
+#distribucion-global .graph-container {
+    flex: 1;
+    /* Toma el espacio disponible */
+    display: flex;
+    width: 100%;
+    position: relative;
+    /* Opcional */
 }

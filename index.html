@@ -151,7 +151,8 @@
         <div class="top-filter-bar">
             <!-- AQI y Opciones -->
             <div class="filter-item-aqi-top">
-                <button id="aqi-btn">AQI</button>
+                <button id="aqi-btn" style="display: none;">AQI</button> <!-- Oculto -->
+                <span class="group-label">Proyección:</span>
                 <div class="filter-item-options-inline">
                     <label><input type="radio" name="dimensionality" value="tsne2"> TSNE</label>
                     <label><input type="radio" name="dimensionality" value="pca2"> PCA</label>
@@ -238,6 +239,7 @@
                             <option value="2023">2023</option>
                             <option value="2024">2024</option>
                             <option value="2025">2025</option>
+                            
                         </select>
                     </div>
                     <div class="filter-item">
@@ -307,7 +309,7 @@
                 <label>Fin: <input type="date" id="end-date" min="2013-03-01" max="2017-01-28"></label>
                 <button id="apply-date-filter">Aplicar</button>
             </div>
-            
+
             <div class="clusters-grid">
                 <div class="cluster-item">
                     <button id="cluster-3-btn2">Kmeans 3</button>

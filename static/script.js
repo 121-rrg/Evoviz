@@ -2856,7 +2856,13 @@ function plotUMAP(data, fechaInicio, fechaFin) {
     });
 
     let filteredClusterData = data;
+    let filteredClusterData2 = data;
+    let filteredClusterData3 = data;
+    let filteredClusterData4 = data;
     let activeFilterData = data;  // Solo un filtro activo a la vez (estación, año o mes)
+    let activeFilterData2 = data;
+    let activeFilterData3 = data;
+    let activeFilterData4 = data;
 
     // Evento para el selector de cluster-12
     document.getElementById("cluster-12-select").addEventListener("change", function () {
@@ -2892,8 +2898,6 @@ function plotUMAP(data, fechaInicio, fechaFin) {
 
 
 
-    let filteredClusterData2 = data;
-    let activeFilterData2 = data;  // Solo un filtro activo a la vez (estación, año o mes)
 
     // Evento para el selector de cluster-6
     document.getElementById("cluster-6-select").addEventListener("change", function () {
