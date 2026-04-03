@@ -1,3 +1,37 @@
+// Convert degrees (0-360) to cardinal direction text (Detailed)
+function getWindDirectionText(degrees) {
+    if (degrees === undefined || degrees === null || isNaN(degrees)) return 'N/A';
+    if (degrees >= 337.5 || degrees < 22.5) return "N (North)";
+    if (degrees >= 22.5 && degrees < 45) return "NNE (North-Northeast)";
+    if (degrees >= 45 && degrees < 67.5) return "NE (Northeast)";
+    if (degrees >= 67.5 && degrees < 90) return "ENE (East-Northeast)";
+    if (degrees >= 90 && degrees < 112.5) return "E (East)";
+    if (degrees >= 112.5 && degrees < 135) return "ESE (East-Southeast)";
+    if (degrees >= 135 && degrees < 157.5) return "SE (Southeast)";
+    if (degrees >= 157.5 && degrees < 180) return "SSE (South-Southeast)";
+    if (degrees >= 180 && degrees < 202.5) return "S (South)";
+    if (degrees >= 202.5 && degrees < 225) return "SSW (South-Southwest)";
+    if (degrees >= 225 && degrees < 247.5) return "SW (Southwest)";
+    if (degrees >= 247.5 && degrees < 270) return "WSW (West-Southwest)";
+    if (degrees >= 270 && degrees < 292.5) return "W (West)";
+    if (degrees >= 292.5 && degrees < 315) return "WNW (West-Northwest)";
+    if (degrees >= 315 && degrees < 337.5) return "NW (Northwest)";
+    return "NNW (North-Northwest)";
+}
+
+// Convert date to Spanish format: "13 de marzo del 2020"
+function formatDateSpanish(date) {
+    if (!date || isNaN(date)) return "";
+    const months = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+    return `${date.getDate()} de ${months[date.getMonth()]} del ${date.getFullYear()}`;
+}
+
+// Global attributes configuration
+const contaminantAttributes = ['PM2_5', 'PM10', 'SO2', 'NO2', 'CO', 'O3'];
+const meteorologicalAttributes = ['TEMP', 'PRES', 'DEWP', 'RAIN'];
+const windAttributes = ['WSPM', 'WD'];
+const allPossibleAttributes = [...contaminantAttributes, ...meteorologicalAttributes, ...windAttributes];
+
 let map;
 let lastInfoWindow = null;
 let stationMeta = null;
@@ -6,13 +40,112 @@ let stations = []; // Dynamic station objects {id, name, file} for current count
 let stationAbbreviations = {}; // Dynamic abbreviations
 let stationDataFromTxt = []; // Raw data from stations.txt
 let markerLayer = null;
+let flowLayer = null;
 let geoJsonLayer = null;
 let mapAqiData = null;
 let dimensionality = "pca2"; // Global dimensionality state
 let currentFilename = 'China_1000.csv'; // Dataset global actual
 let startDateFilter = null;
 let endDateFilter = null;
+let meteoDataCache = {}; // Cache: { country: { "stationId_YYYY-MM-DD": { TEMP, PRES, DEWP, WSPM } } }
+let isProgrammaticSelection = false;
 const getFusionPath = () => `NEW_MODEL_DCAE/fusion/data_unida/real_data_${dimensionality}/`;
+
+// Carga y cachea los datos meteorológicos para un país, uniéndolos con las estaciones
+async function loadMeteoForCountry(country) {
+    if (meteoDataCache[country]) return; // Ya cargado
+    const countryLower = country.toLowerCase();
+    try {
+        // 1. Leer station CSV para obtener IDs válidos
+        const stationRows = await d3.csv(`NEW-DATA/DATA/Station/station_${countryLower}.csv`);
+        const validStationIds = new Set(stationRows.map(r => String(r.station_id)));
+
+        // 2. Leer meteo CSV
+        const meteoRows = await d3.csv(`NEW-DATA/DATA/Meteo/meteorology_${countryLower}.csv`);
+
+        // 3. Agrupar por (station_id, date) calculando promedios diarios
+        const daily = {};
+        meteoRows.forEach(r => {
+            const stId = String(r.id);
+            if (!validStationIds.has(stId)) return;
+            // Parsear fecha desde formato '2019-01-01 00:00:00'
+            const timeParts = (r.time || '').split(' ')[0].split('-');
+            if (timeParts.length < 3) return;
+            const dateKey = `${timeParts[0]}-${+timeParts[1]}-${+timeParts[2]}`;
+            const cacheKey = `${stId}_${dateKey}`;
+            if (!daily[cacheKey]) {
+                daily[cacheKey] = { TEMP: 0, PRES: 0, DEWP: 0, WSPM: 0, RAIN: 0, WD: 0, count: 0 };
+            }
+            const e = daily[cacheKey];
+            e.TEMP += isNaN(+r.temperature) ? 0 : +r.temperature;
+            e.PRES += isNaN(+r.pressure) ? 0 : +r.pressure;
+            e.DEWP += isNaN(+r.humidity) ? 0 : +r.humidity;  // approx
+            e.WSPM += isNaN(+r.wind_speed) ? 0 : +r.wind_speed;
+            e.RAIN += isNaN(+r.rain) ? 0 : +r.rain;
+            // Solo WD si es número y > 0 (evitar promedio con error 0 si no es norte real)
+            e.WD += isNaN(+r.wind_direction) ? 0 : +r.wind_direction;
+            e.count += 1;
+        });
+
+        // 4. Calcular promedios
+        const cache = {};
+        Object.entries(daily).forEach(([key, v]) => {
+            if (v.count === 0) return;
+            cache[key] = {
+                TEMP: v.TEMP / v.count,
+                PRES: v.PRES / v.count,
+                DEWP: v.DEWP / v.count,
+                WSPM: v.WSPM / v.count,
+                RAIN: v.RAIN, // precipitation is sum, was already summed
+                WD: v.WD / v.count
+            };
+        });
+        meteoDataCache[country] = cache;
+        console.log(`[MeteoCache] ${country}: ${Object.keys(cache).length} registros diarios cargados.`);
+    } catch (err) {
+        console.error(`[MeteoCache] Error cargando datos meteorológicos para ${country}:`, err);
+        meteoDataCache[country] = {};
+    }
+}
+
+// Enriquecer puntos de datos con valores del cache de meteorología
+function enrichWithMeteoCache(dataPoints, country) {
+    const cache = meteoDataCache[country] || {};
+    const meteoAttrs = ['TEMP', 'PRES', 'DEWP', 'WSPM', 'RAIN', 'WD'];
+    return dataPoints.map(d => {
+        // Construir fecha: soportar tanto d.date (Date obj / string) como d.year+d.month+d.day
+        // Los datos de Fusion UMAP solo tienen year/month/day, NO tienen d.date.
+        // Sin esta corrección, new Date(undefined) produce Invalid Date y todos los lookups fallan.
+        const originalDate = d.date instanceof Date
+            ? d.date
+            : (d.date ? new Date(d.date) : new Date(+d.year, +d.month - 1, +d.day));
+        // Recorrer un día (shift) según pedido del usuario: el clima de ayer afecta hoy
+        const shiftedDate = d3.timeDay.offset(originalDate, 0);
+        // Si el usuario quiere "aumentarlo un día", tal vez quiere que la data de CACHE 2019-01-01 
+        // se asigne al dataPoint de 2019-01-02.
+        // Entonces para el dataPoint de 2019-01-02, buscamos cacheKey de 2019-01-01.
+        const lookupDate = d3.timeDay.offset(originalDate, -1);
+        const dateKey = `${lookupDate.getFullYear()}-${lookupDate.getMonth() + 1}-${lookupDate.getDate()}`;
+
+        const stId = String(d.station);
+        const cacheKey = `${stId}_${dateKey}`;
+        const meteo = cache[cacheKey];
+        if (!meteo) return d;
+        const enriched = Object.assign({}, d);
+        meteoAttrs.forEach(attr => {
+            if (meteo[attr] !== undefined) enriched[attr] = meteo[attr];
+        });
+        if (meteo.WD !== undefined) {
+            enriched.WD = meteo.WD; // Uppercase para consistencia con otros atributos
+            enriched.wd = meteo.WD; // Mantener lowercase para compatibilidad
+        }
+        return enriched;
+    });
+}
+
+function isMeteorologicalAttribute(attr) {
+    return ['TEMP', 'PRES', 'DEWP', 'WSPM', 'RAIN', 'WD'].includes(attr);
+}
 
 // --- AQI GLOBAL CONFIGURATION ---
 const dailyLimits = {
@@ -106,7 +239,7 @@ function getDimCols() {
 }
 
 // Helper unificado para actualizar todo el dashboard
-async function updateAll() {
+async function updateAll(skipMap = false) {
     const selectedCity = document.querySelector('#city-checkboxes input[type="radio"]:checked')?.value || currentFilename;
     const visualizarTodo = document.getElementById('visualizar-todo').checked;
 
@@ -145,7 +278,7 @@ async function updateAll() {
     if (typeof updateCorrelationMatrix === 'function') updateCorrelationMatrix();
 
     // 5. Marcadores del Mapa
-    if (typeof updateMapMarkers === 'function') updateMapMarkers();
+    if (typeof updateMapMarkers === 'function' && !skipMap) await updateMapMarkers();
 
     // 6. Serie de Tiempo
     if (typeof updateTimeSeriesChart === 'function') {
@@ -312,20 +445,22 @@ function populateCountryStations(country) {
                     (sZona === "Traffic") ? "#e74c3c" : "#9b59b6";
 
         label.innerHTML = `<input type="radio" name="city" value="${s.file}" ${checked}> 
-            <span style="display: inline-flex; align-items: center; margin-right: 5px; vertical-align: middle;">
-                ${getZoneSvg(sZona, zoneColor, 12)}
+            <span style="display: inline-flex; align-items: center; margin-right: 8px; vertical-align: middle;">
+                ${getZoneSvg(sZona, zoneColor, 20)}
             </span>
             ${displayName}`;
 
         label.querySelector('input').addEventListener('change', () => {
+            if (isProgrammaticSelection) return;
             currentFilename = s.file;
-            updateAll();
+            updateAll(true); // Actualiza gráficas pero NO refresca todos los marcadores (evita cerrar popup)
 
             // Zoom to station
             if (txtInfo && txtInfo.lat && txtInfo.lng) {
                 map.setView([txtInfo.lat, txtInfo.lng], 12);
-                // Find and open popup if marker exists
-                if (s.marker) s.marker.openPopup();
+                if (s.marker) {
+                    updateInfoWindowContent(s.marker, s);
+                }
             }
         });
 
@@ -378,6 +513,12 @@ async function loadCountryGeoJson(url) {
 window.addEventListener('DOMContentLoaded', () => {
     initLeafletMap();
     loadStationMeta();
+
+    // Disparar la carga inicial de datos una vez que el mapa esté listo
+    if (document.getElementById('visualizar-todo')) {
+        document.getElementById('visualizar-todo').checked = true;
+        document.getElementById('visualizar-todo').dispatchEvent(new Event('change'));
+    }
 });
 
 
@@ -394,6 +535,7 @@ function initLeafletMap() {
     }).addTo(map);
 
     markerLayer = L.layerGroup().addTo(map);
+    // flowLayer = L.layerGroup().addTo(map); // Removido
 }
 
 function updateWindDirectionAndMarkers(station, map, position, iconUrl, selectedDate = null) {
@@ -456,32 +598,31 @@ async function loadMapAqiData() {
     }
 }
 
-function updateMapMarkers() {
-    if (!mapAqiData || !markerLayer) return;
+async function updateMapMarkers() {
+    if (!map) return;
 
+    if (markerLayer) markerLayer.clearLayers();
+    else markerLayer = L.layerGroup().addTo(map);
+
+    // if (flowLayer) flowLayer.clearLayers();
+    // else flowLayer = L.layerGroup().addTo(map);
+
+    // Filtros de fecha
+    const startInput = document.getElementById('fecha-inicio');
+    const endInput = document.getElementById('fecha-fin');
     const visualizarTodo = document.getElementById('visualizar-todo').checked;
-    let fechaInicio = new Date(2013, 2, 1);
-    let fechaFin = new Date(2017, 1, 28);
 
-    if (!visualizarTodo) {
-        fechaInicio = new Date(document.getElementById('fecha-inicio').value);
-        fechaFin = new Date(document.getElementById('fecha-fin').value);
-    }
+    const startDate = visualizarTodo ? null : (startInput?.value ? new Date(startInput.value) : null);
+    const endDate = visualizarTodo ? null : (endInput?.value ? new Date(endInput.value) : null);
 
-    const filteredDataTotal = mapAqiData.filter(row => {
-        const rowDate = new Date(row.year, row.month - 1, row.day);
-        return rowDate >= fechaInicio && rowDate <= fechaFin;
-    });
+    const country = currentCountry;
+    await loadMeteoForCountry(country);
+    const meteoCache = meteoDataCache[country] || {};
 
-    const aqiByStation = {};
-    filteredDataTotal.forEach(row => {
-        if (!aqiByStation[row.stationId]) aqiByStation[row.stationId] = { sum: 0, count: 0 };
-        aqiByStation[row.stationId].sum += row.AQI;
-        aqiByStation[row.stationId].count += 1;
-    });
+    const rangeStr = (startDate && endDate) ? `${formatDateSpanish(startDate)} a ${formatDateSpanish(endDate)}` : "Rango Global";
 
-    markerLayer.clearLayers();
-    stations.forEach(s => {
+    const markerPromises = stations.map(async s => {
+        // Usar los metadatos de stationMeta si están disponibles
         const txtInfo = stationDataFromTxt.find(t => t.id === s.id);
         if (txtInfo) {
             s.lat = txtInfo.lat;
@@ -490,78 +631,227 @@ function updateMapMarkers() {
             s.zona = txtInfo.zona;
         }
 
-        const stationAQI = aqiByStation[s.id] || aqiByStation[s.name];
-        const averageAQI = stationAQI && stationAQI.count > 0 ? (stationAQI.sum / stationAQI.count).toFixed(2) : 0;
-        const iconUrl = createCustomIcon(s.zona || "Urban", parseFloat(averageAQI));
+        if (!s.lat || !s.lng) return;
 
-        if (s.lat && s.lng) {
-            updateWindDirectionAndMarkers(s, map, { lat: s.lat, lng: s.lng }, iconUrl);
+        // Cargar data para calcular AQI promedio y viento
+        try {
+            const data = await loadStationData(s.file);
+            const filtered = data.filter(d => {
+                const date = new Date(+d.year, +d.month - 1, +d.day);
+                if (!startDate || !endDate) return true;
+                return date >= startDate && date <= endDate;
+            });
+
+            if (filtered.length === 0) return;
+
+            let totalAQILevel = 0;
+            let totalWSPM = 0;
+            let totalSin = 0;
+            let totalCos = 0;
+            let mCount = 0;
+
+            filtered.forEach(d => {
+                // getGlobalAQILevel calcula el índice (1-6) basado en el MAX de contaminantes
+                totalAQILevel += getGlobalAQILevel(d);
+
+                const dateKey = `${+d.year}-${+d.month}-${+d.day}`;
+                const cacheKey = `${s.id}_${dateKey}`;
+                const meteo = meteoCache[cacheKey];
+                if (meteo) {
+                    totalWSPM += meteo.WSPM;
+                    // Promedio vectorial para dirección del viento
+                    const rad = meteo.WD * Math.PI / 180;
+                    totalSin += Math.sin(rad);
+                    totalCos += Math.cos(rad);
+                    mCount++;
+                }
+            });
+
+            const avgAQILevel = totalAQILevel / filtered.length;
+            const avgWSPM = mCount > 0 ? totalWSPM / mCount : 0;
+
+            let avgWD = 0;
+            if (mCount > 0) {
+                avgWD = Math.atan2(totalSin / mCount, totalCos / mCount) * 180 / Math.PI;
+                if (avgWD < 0) avgWD += 360;
+            }
+
+            const icon = createCustomIcon(s.zona || "Urban", avgAQILevel, avgWD);
+            const marker = L.marker([s.lat, s.lng], { icon: icon }).addTo(markerLayer);
+
+            const aqiText = ["Excelente", "Bueno", "Moderado", "Pobre", "Insalubre", "Peligroso"][Math.round(avgAQILevel) - 1] || "N/A";
+
+
+            marker.on('click', () => {
+                updateInfoWindowContent(marker, s);
+            });
+
+            s.marker = marker;
+            s.avgAQI = avgAQILevel;
+            s.avgWSPM = avgWSPM;
+            s.avgWD = avgWD;
+        } catch (err) {
+            console.error(`Error procesando marcador para estación ${s.name}:`, err);
         }
     });
+
+    await Promise.all(markerPromises);
+
+    // Generar el campo de flujo de viento (Opcional - Removido por pedido del usuario)
+    /*
+    const validStations = stations.filter(s => s.avgWD !== undefined && s.lat && s.lng);
+    if (validStations.length > 0) {
+        updateWindFlowField(validStations);
+    }
+    */
+}
+
+function updateWindFlowField(stationsWithMeteo) {
+    if (!flowLayer) return;
+    flowLayer.clearLayers();
+
+    // 1. Obtener límites geográficos para la malla (grid)
+    const lats = stationsWithMeteo.map(s => s.lat);
+    const lngs = stationsWithMeteo.map(s => s.lng);
+
+    const minLat = Math.min(...lats) - 0.4;
+    const maxLat = Math.max(...lats) + 0.4;
+    const minLng = Math.min(...lngs) - 0.4;
+    const maxLng = Math.max(...lngs) + 0.4;
+
+    // 2. Definir densidad de la malla (más densa 'apegada')
+    const steps = 25; // 25x25 grid
+    const latStep = (maxLat - minLat) / steps;
+    const lngStep = (maxLng - minLng) / steps;
+
+    for (let i = 0; i <= steps; i++) {
+        for (let j = 0; j <= steps; j++) {
+            const pLat = minLat + i * latStep;
+            const pLng = minLng + j * lngStep;
+
+            // 3. Filtrado por proximidad (solo mostrar flujo cerca de estaciones)
+            let minDist = Infinity;
+            stationsWithMeteo.forEach(s => {
+                const dist = Math.sqrt(Math.pow(pLat - s.lat, 2) + Math.pow(pLng - s.lng, 2));
+                if (dist < minDist) minDist = dist;
+            });
+
+            // Si está muy lejos de cualquier estación, no mostramos flecha (evitar extrapolación)
+            if (minDist > 0.4) continue;
+
+            let sumSin = 0;
+            let sumCos = 0;
+            let sumW = 0;
+
+            stationsWithMeteo.forEach(s => {
+                const dist = Math.sqrt(Math.pow(pLat - s.lat, 2) + Math.pow(pLng - s.lng, 2));
+                if (dist < 0.001) {
+                    const rad = s.avgWD * Math.PI / 180;
+                    sumSin = Math.sin(rad);
+                    sumCos = Math.cos(rad);
+                    sumW = 1;
+                    return;
+                }
+                // IDW con peso que decae rápido
+                const weight = 1 / Math.pow(dist, 2);
+                const rad = s.avgWD * Math.PI / 180;
+                sumSin += Math.sin(rad) * weight;
+                sumCos += Math.cos(rad) * weight;
+                sumW += weight;
+            });
+
+            if (sumW > 0) {
+                const interpWD = Math.atan2(sumSin / sumW, sumCos / sumW) * 180 / Math.PI;
+                const finalWD = (interpWD + 360) % 360;
+
+                // 4. Crear micro-flecha de flujo (Más grande y opaca)
+                const flowIcon = L.divIcon({
+                    className: 'field-flow-arrow',
+                    html: `
+                        <svg width="25" height="25" viewBox="0 0 100 100" style="overflow:visible">
+                            <g transform="translate(50,50) rotate(${finalWD})">
+                                <path d="M 0,18 L 0,-18" stroke="#00a8cc" stroke-width="8" stroke-linecap="round" opacity="0.35" />
+                                <path d="M -10,0 L 0,-21 L 10,0" fill="none" stroke="#00a8cc" stroke-width="8" stroke-linecap="round" opacity="0.35" />
+                            </g>
+                        </svg>
+                    `,
+                    iconSize: [25, 25],
+                    iconAnchor: [12.5, 12.5]
+                });
+
+                L.marker([pLat, pLng], { icon: flowIcon, interactive: false, zIndexOffset: -100 }).addTo(flowLayer);
+            }
+        }
+    }
+}
+
+let stationRawDataCache = {};
+async function loadStationData(file) {
+    if (stationRawDataCache[file]) return stationRawDataCache[file];
+    const data = await d3.csv(`${getFusionPath()}${file}`);
+    stationRawDataCache[file] = data;
+    return data;
 }
 
 let ColorAqiglobal = null;
 
-
-function getWindDirectionText(degrees) {
-    if (degrees >= 337.5 || degrees < 22.5) return "N (North)";
-    if (degrees >= 22.5 && degrees < 45) return "NNE (North-Northeast)";
-    if (degrees >= 45 && degrees < 67.5) return "NE (Northeast)";
-    if (degrees >= 67.5 && degrees < 90) return "ENE (East-Northeast)";
-    if (degrees >= 90 && degrees < 112.5) return "E (East)";
-    if (degrees >= 112.5 && degrees < 135) return "ESE (East-Southeast)";
-    if (degrees >= 135 && degrees < 157.5) return "SE (Southeast)";
-    if (degrees >= 157.5 && degrees < 180) return "SSE (South-Southeast)";
-    if (degrees >= 180 && degrees < 202.5) return "S (South)";
-    if (degrees >= 202.5 && degrees < 225) return "SSW (South-Southwest)";
-    if (degrees >= 225 && degrees < 247.5) return "SW (Southwest)";
-    if (degrees >= 247.5 && degrees < 270) return "WSW (West-Southwest)";
-    if (degrees >= 270 && degrees < 292.5) return "W (West)";
-    if (degrees >= 292.5 && degrees < 315) return "WNW (West-Northwest)";
-    if (degrees >= 315 && degrees < 337.5) return "NW (Northwest)";
-    return "NNW (North-Northwest)";
-}
-
 function updateInfoWindowContent(marker, station) {
-    const visualizarTodo = document.getElementById('visualizar-todo').checked;
-    const fechaInicioPredeterminada = new Date(2013, 2, 1);
-    const fechaFinPredeterminada = new Date(2017, 1, 28);
+    const visualizarTodo = document.getElementById('visualizar-todo')?.checked ?? false;
+    const startInput = document.getElementById('fecha-inicio');
+    const endInput = document.getElementById('fecha-fin');
 
-    const fechaInicio = visualizarTodo ? fechaInicioPredeterminada : new Date(document.getElementById('fecha-inicio').value);
-    const fechaFin = visualizarTodo ? fechaFinPredeterminada : new Date(document.getElementById('fecha-fin').value);
+    const fechaInicio = visualizarTodo ? null : (startInput?.value ? new Date(startInput.value) : null);
+    const fechaFin = visualizarTodo ? null : (endInput?.value ? new Date(endInput.value) : null);
 
-    const averages = calculateAverages(station, fechaInicio, fechaFin);
-    const windDirectionText = getWindDirectionText(averages.averageWD);
+    // Priorizar los promedios ya calculados en el objeto de la estación
+    const avgAQI = station.avgAQI !== undefined ? station.avgAQI : 0;
+    const avgWSPM = station.avgWSPM !== undefined ? station.avgWSPM : 0;
+    const avgWD = station.avgWD !== undefined ? station.avgWD : 0;
 
-    const formatDate = (date) => {
-        const months = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
-        return `${date.getDate()} de ${months[date.getMonth()]} de ${date.getFullYear()}`;
-    };
+    const windDirectionText = getWindDirectionText(avgWD);
+    const aqiColor = aqiColors[Math.round(avgAQI) - 1] || '#ccc';
+    const aqiLevelText = ["Excelente", "Bueno", "Moderado", "Pobre", "Insalubre", "Peligroso"][Math.round(avgAQI) - 1] || "N/A";
 
-    const aqi = averages.averageAQI;
-    const aqiColor = aqi >= 0 && aqi <= 1.5 ? '#00e400' : aqi > 1.5 && aqi <= 2.5 ? '#ff0' : aqi > 2.5 && aqi <= 3.5 ? '#ff7e00' : aqi > 3.5 && aqi <= 4.5 ? '#f00' : aqi > 4.5 && aqi <= 5 ? '#99004c' : '#7e0023';
+    const rangeStr = (fechaInicio && fechaFin) ? `${formatDateSpanish(fechaInicio)} a ${formatDateSpanish(fechaFin)}` : "Rango Global";
 
     const content = `
-    <div style="font-family: Arial, sans-serif; font-size: 12px; color: #333; padding: 5px; max-width:200px; line-height: 1.4;">
-        <strong style="font-size: 14px; color: #1a73e8; display: block; margin-bottom: 5px;">${station.name}</strong>
-        <p style="margin: 3px 0;"><strong>AQI:</strong> <span style="background-color: ${aqiColor}; color: #000; padding: 2px 5px; border-radius: 3px;">${Math.round(aqi)}</span></p>
-        <p style="margin: 3px 0;"><strong>Viento:</strong> ${averages.averageWSPM.toFixed(2)} m/s (${windDirectionText})</p>
-        <p style="margin: 3px 0;"><strong>Zona:</strong> ${station.zona || "N/A"}</p>
-        <p style="margin: 3px 0; font-size: 10px; color: #666;">${formatDate(fechaInicio)} a ${formatDate(fechaFin)}</p>
+    <div style="font-family: inherit; padding: 10px; line-height:1.4; min-width:200px;">
+        <strong style="font-size: 15px; color: #1a73e8; display: block; margin-bottom: 8px; border-bottom: 1px solid #eee; padding-bottom:4px;">${station.name}</strong>
+        <div style="margin-bottom: 8px;">
+            <strong>AQI (Máx):</strong> 
+            <span style="background-color: ${aqiColor}; color: #000; padding: 2px 6px; border-radius: 4px; font-weight:bold; font-size:13px;">
+                ${Math.round(avgAQI)}
+            </span>
+        </div>
+        <p style="margin: 4px 0;"><strong>Velocidad Viento:</strong> ${avgWSPM.toFixed(2)} m/s</p>
+        <p style="margin: 4px 0;"><strong>Dirección del viento:</strong> ${windDirectionText}</p>
+        <p style="margin: 4px 0;"><strong>Zona:</strong> ${station.zona || "Urban"}</p>
+        <div style="margin-top: 12px; padding-top: 8px; border-top: 1px solid #eee; font-size: 10px; color: #666; font-style: italic;">
+            Periodo: ${rangeStr}
+        </div>
     </div>`;
 
-    marker.bindPopup(content).openPopup();
+    marker.unbindPopup();
+    marker.bindPopup(content, {
+        maxWidth: 320,
+        className: 'custom-station-popup',
+        offset: [0, -35]
+    }).openPopup();
+
     selectCityCheckbox(station.id);
 }
 
 
 function selectCityCheckbox(city) {
     const newCity = `Data_${city.charAt(0).toUpperCase() + city.slice(1)}.csv`;
-    // console.log(newCity);
     const checkbox = document.querySelector(`input[name="city"][value="${newCity}"]`);
     if (checkbox) {
+        isProgrammaticSelection = true;
         checkbox.checked = true;
-        checkbox.dispatchEvent(new Event('change'));
+        isProgrammaticSelection = false;
+
+        currentFilename = newCity;
+        updateAll(true); // Actualiza gráficas sin recrear marcadores del mapa
     }
 }
 
@@ -599,65 +889,62 @@ function getZoneStyles(category) {
     return styles[category] || { color: "#9b59b6", shape: "hexagon" };
 }
 
-function getZoneSvg(category, fillColor = "#666", size = 15, innerColor = "#eee") {
+function getZoneSvg(category, fillColor = "#666", size = 15, innerColor = "#eee", arrowDegrees = null) {
     let shape = "";
-    let innerPoint = `<circle cx="50" cy="50" r="12" fill="${innerColor}" stroke="white" stroke-width="3"/>`;
+    const isMapIcon = arrowDegrees !== null && !isNaN(arrowDegrees);
+
+    // Si es para el mapa (con flecha), bajamos el icono (150 alto)
+    // Si es para UI (lista/leyenda), lo centramos normales (100 alto)
+    const transform = isMapIcon ? "translate(10, 60) scale(0.8)" : "translate(10, 10) scale(0.8)";
+    const viewBox = isMapIcon ? "0 0 100 150" : "0 0 100 100";
+    const height = isMapIcon ? size * 1.5 : size;
+
+    let innerPoint = `<circle cx="50" cy="50" r="12" fill="${innerColor}" stroke="white" stroke-width="3" transform="${transform}"/>`;
 
     if (category === "Urban") {
-        shape = `<polygon points="50,15 85,85 15,85" fill="${fillColor}" stroke="black" stroke-width="5"/>`;
-        innerPoint = `<circle cx="50" cy="62" r="12" fill="${innerColor}" stroke="white" stroke-width="3"/>`;
+        shape = `<polygon points="50,15 85,85 15,85" fill="${fillColor}" stroke="black" stroke-width="5" transform="${transform}"/>`;
+        innerPoint = `<circle cx="50" cy="62" r="12" fill="${innerColor}" stroke="white" stroke-width="3" transform="${transform}"/>`;
     } else if (category === "Suburban") {
-        shape = `<rect x="15" y="15" width="70" height="70" fill="${fillColor}" stroke="black" stroke-width="5"/>`;
+        shape = `<rect x="15" y="15" width="70" height="70" fill="${fillColor}" stroke="black" stroke-width="5" transform="${transform}"/>`;
     } else if (category === "Rural") {
-        shape = `<polygon points="50,5 63,38 98,38 70,59 81,92 50,72 19,92 30,59 2,38 37,38" fill="${fillColor}" stroke="black" stroke-width="5"/>`;
+        shape = `<polygon points="50,5 63,38 98,38 70,59 81,92 50,72 19,92 30,59 2,38 37,38" fill="${fillColor}" stroke="black" stroke-width="5" transform="${transform}"/>`;
     } else if (category === "Traffic") {
-        shape = `<circle cx="50" cy="50" r="40" fill="${fillColor}" stroke="black" stroke-width="5"/>`;
+        shape = `<circle cx="50" cy="50" r="40" fill="${fillColor}" stroke="black" stroke-width="5" transform="${transform}"/>`;
     } else {
-        shape = `<polygon points="50,5 90,25 90,75 50,95 10,75 10,25" fill="${fillColor}" stroke="black" stroke-width="5"/>`;
+        shape = `<polygon points="50,5 90,25 90,75 50,95 10,75 10,25" fill="${fillColor}" stroke="black" stroke-width="5" transform="${transform}"/>`;
     }
-    return `<svg width="${size}" height="${size}" viewBox="0 0 100 100" style="vertical-align: middle;">${shape}${innerPoint}</svg>`;
+
+    let arrow = "";
+    if (isMapIcon) {
+        arrow = `<g transform="translate(50, 30) rotate(${arrowDegrees})">
+                    <path d="M 0,18 L 0,-24" stroke="black" stroke-width="12" stroke-linecap="round" />
+                    <path d="M -14,-7 L 0,-27 L 14,-7" fill="none" stroke="black" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" />
+                    <path d="M 0,16 L 0,-22" stroke="#00a8cc" stroke-width="8" stroke-linecap="round" />
+                    <path d="M -12,-6 L 0,-25 L 12,-6" fill="none" stroke="#00a8cc" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" />
+                 </g>`;
+    }
+
+    return `<svg width="${size}" height="${height}" viewBox="${viewBox}" style="overflow: visible; vertical-align: middle;">
+        ${shape}
+        ${innerPoint}
+        ${arrow}
+    </svg>`;
 }
-function createCustomIcon(category, averageAQI) {
-    const aqiColor = averageAQI >= 0 && averageAQI <= 1.5 ? '#00e400' :
-        averageAQI > 1.5 && averageAQI <= 2.5 ? '#ff0' :
-            averageAQI > 2.5 && averageAQI <= 3.5 ? '#ff7e00' :
-                averageAQI > 3.5 && averageAQI <= 4.5 ? '#f00' :
-                    averageAQI > 4.5 && averageAQI <= 5 ? '#99004c' :
-                        '#7e0023';
+function createCustomIcon(category, averageAQI_Level, windDegrees = null) {
+    // averageAQI_Level is 1-6
+    const aqiColor = aqiColors[Math.round(averageAQI_Level) - 1] || '#ccc';
 
     const style = getZoneStyles(category);
-    const svg = d3.create("svg")
-        .attr("xmlns", "http://www.w3.org/2000/svg")
-        .attr("viewBox", "0 0 100 100")
-        .attr("width", "100")
-        .attr("height", "100");
+    const svgHtml = getZoneSvg(category, style.color, 30, aqiColor, windDegrees); // Ancho 30
 
-    let shapeNode;
-    if (style.shape === "triangle") {
-        shapeNode = svg.append("polygon").attr("points", "50,15 85,85 15,85");
-    } else if (style.shape === "square") {
-        shapeNode = svg.append("rect").attr("x", "15").attr("y", "15").attr("width", "70").attr("height", "70");
-    } else if (style.shape === "star") {
-        shapeNode = svg.append("polygon").attr("points", "50,5 63,38 98,38 70,59 81,92 50,72 19,92 30,59 2,38 37,38");
-    } else if (style.shape === "circle") {
-        shapeNode = svg.append("circle").attr("cx", "50").attr("cy", "50").attr("r", "40");
-    } else {
-        shapeNode = svg.append("polygon").attr("points", "50,5 90,25 90,75 50,95 10,75 10,25");
-    }
-
-    shapeNode.attr("fill", style.color).attr("stroke", "black").attr("stroke-width", 3);
-
-    // Inner small point for AQI level
-    svg.append("circle")
-        .attr("cx", "50")
-        .attr("cy", style.shape === "triangle" ? "62" : "50")
-        .attr("r", "12")
-        .attr("fill", aqiColor)
-        .attr("stroke", "white")
-        .attr("stroke-width", 2);
-
-    return "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(svg.node().outerHTML);
+    return L.divIcon({
+        className: 'custom-div-icon',
+        html: svgHtml,
+        iconSize: [30, 45], // Altura ampliada (30 * 1.5)
+        iconAnchor: [15, 45] // El ancla es el centro inferior del icono principal
+    });
 }
+
 
 function createZoneLegend() {
     let legendContainer = document.getElementById('zone-legend');
@@ -684,11 +971,11 @@ function createZoneLegend() {
         { name: 'Traffic (Tráfico)', color: "#e74c3c", category: "Traffic" }
     ];
 
-    legendContainer.innerHTML = `<div style="font-weight:bold; color:#2D6A4F; margin-bottom:5px; border-bottom:1px solid #ddd;">Leyenda de Zonas</div>` +
+    legendContainer.innerHTML = `<div style="font-weight:bold; color:#2D6A4F; margin-bottom:8px; border-bottom:1px solid #ddd; font-size:12px;">Leyenda de Zonas</div>` +
         zones.map(z => `
-        <div style="display:flex; align-items:center; gap:8px;">
-            ${getZoneSvg(z.category, z.color, 14)}
-            <span>${z.name}</span>
+        <div style="display:flex; align-items:center; gap:10px; margin-bottom:5px;">
+            ${getZoneSvg(z.category, z.color, 20)}
+            <span style="font-size:11px;">${z.name}</span>
         </div>
     `).join('') +
         `<div style="font-size:9px; color:#666; margin-top:5px; border-top:1px solid #eee; padding-top:2px;">Centro del icono indica nivel AQI</div>`;
@@ -762,9 +1049,7 @@ document.getElementById('fecha-fin').addEventListener('change', updateAll);
 
 document.getElementById('visualizar-todo').addEventListener('change', updateAll);
 
-// Asegúrate de que el estado del checkbox se refleje correctamente al cargar la página
-document.getElementById('visualizar-todo').checked = true; // Marca el checkbox
-document.getElementById('visualizar-todo').dispatchEvent(new Event('change')); // Llama al evento para aplicar los cambios
+// El estado inicial se gestiona en el evento DOMContentLoaded al inicio del script
 
 
 // Modificar la función updateChart para la gráfica radial
@@ -781,19 +1066,33 @@ function updateChart() {
 
     selectedCities.forEach(selectedCity => {
         d3.csv(`${getFusionPath()}${selectedCity}`).then(data => {
+            // ENRIQUECER CON DATOS METEOROLÓGICOS (CRUCIAL PARA PRES Y RAIN)
+            const country = currentCountry;
+            data = enrichWithMeteoCache(data, country);
+
             const visualizarTodo = document.getElementById('visualizar-todo').checked;
             if (!visualizarTodo && startDate && endDate) {
+                const s = new Date(startDate);
+                const e = new Date(endDate);
                 data = data.filter(d => {
-                    const date = new Date(`${d.year}-${d.month}-${d.day}`);
-                    return date >= new Date(startDate) && date <= new Date(endDate);
+                    const date = new Date(d.year, d.month - 1, d.day);
+                    return date >= s && date <= e;
                 });
             }
 
             const parsedData = d3.groups(data, d => `${d.year}-${d.month}-${d.day}`).map(([date, entries]) => {
                 const avg = {};
                 selectedAttributes.forEach(attr => {
-                    const values = entries.map(d => +d[attr.replace('.', '_')]).filter(v => !isNaN(v));
-                    avg[attr] = values.length > 0 ? d3.mean(values) : 0;
+                    const values = entries.map(d => {
+                        const val = +d[attr.replace('.', '_')];
+                        return isNaN(val) ? +d[attr] : val;
+                    }).filter(v => {
+                        const isInvalidVal = (attr === 'PRES' || attr === 'DEWP') && v === 0;
+                        return !isNaN(v) && isFinite(v) && !isInvalidVal;
+                    });
+
+                    // IMPORTANTE: Si no hay valores, usar NaN para que la línea no baje a 0 (Sincronizado con Serie de Tiempo)
+                    avg[attr] = values.length > 0 ? d3.mean(values) : NaN;
                 });
                 avg.date = date;
                 avg.year = entries[0].year;
@@ -806,18 +1105,20 @@ function updateChart() {
         });
     });
 }
-// Colores definidos para cada atributo
+// Colores definidos para cada atributo (Sincronizado con Serie de Tiempo y Meteorología)
 const attributeColors = {
-    'PM2_5': '#ef4444', // Rose Red
-    'PM10': '#f97316',  // Amber
-    'SO2': '#eab308',   // Yellow
-    'NO2': '#a855f7',   // Purple
-    'CO': '#06b6d4',    // Cyan
-    'O3': '#3b82f6',    // Blue
-    'TEMP': '#10b981',  // Emerald
-    'PRES': '#64748b',  // Slate
-    'DEWP': '#6366f1',  // Indigo
-    'RAIN': '#0ea5e9'   // Sky Blue
+    'PM2_5': '#FF0000',
+    'PM10': '#FF9900',
+    'SO2': '#FFD700',
+    'NO2': '#d500f1',
+    'CO': '#00CED1',
+    'O3': '#0000FF',
+    'TEMP': '#008000',
+    'PRES': '#8B0000',
+    'DEWP': '#4B0082',
+    'RAIN': '#1E90FF',
+    'WSPM': '#7f8c8d',
+    'WD': '#95a5a6'
 };
 
 function drawRadialChart(data, attributes) {
@@ -866,16 +1167,39 @@ function drawRadialChart(data, attributes) {
     }
 
     attributes.forEach((attr, index) => {
-        const radialScale = d3.scaleLinear().domain([0, maxValues[index]]).range([centralHoleRadius + index * ringWidth, centralHoleRadius + (index + 1) * ringWidth]);
+        // Calcular min y max para cada atributo (Zoom de fluctuaciones)
+        const attrValues = data.map(d => d[attr]).filter(v => !isNaN(v));
+        let minVal = d3.min(attrValues) || 0;
+        let maxVal = d3.max(attrValues) || 1;
+
+        // Ajuste especial para PRES: No empezar en 0 para ver fluctuaciones igual que en Serie de Tiempo
+        if (attr === 'PRES' && minVal > 900) {
+            // Mantener rango estrecho para maximizar visualización de cambios
+        } else if (['RAIN', 'CO', 'SO2', 'NO2', 'PM2_5', 'PM10', 'O3'].includes(attr)) {
+            minVal = 0; // Para contaminantes y lluvia empezamos en 0
+        }
+
+        let radialScale;
+        if (attr === 'RAIN' || attr === 'PRECIPITACION') {
+            // Escala raíz cuadrada para lluvia para ver mejor valores pequeños igual que en drawRadialChart2
+            radialScale = d3.scaleSqrt()
+                .domain([minVal, maxVal])
+                .range([centralHoleRadius + index * ringWidth, centralHoleRadius + (index + 1) * ringWidth]);
+        } else {
+            radialScale = d3.scaleLinear()
+                .domain([minVal, maxVal])
+                .range([centralHoleRadius + index * ringWidth, centralHoleRadius + (index + 1) * ringWidth]);
+        }
 
         chartGroup.append("circle").attr("cx", 0).attr("cy", 0)
-            .attr("r", radialScale(maxValues[index])).attr("fill", "none")
+            .attr("r", radialScale(maxVal)).attr("fill", "none")
             .attr("stroke", "#000").attr("stroke-width", 1)
             .attr("stroke-dasharray", "3,3");
 
         const line = d3.lineRadial()
             .angle((d, j) => angleScale(j))
-            .radius(d => radialScale(d[attr]) || 0);
+            .radius(d => radialScale(d[attr]))
+            .defined(d => !isNaN(d[attr])); // Saltar puntos sin datos
 
         // Color para la línea
         const lineColor = attributeColors[attr] || '#000';  // Si no está definido, asigna un color por defecto
@@ -972,7 +1296,10 @@ function updateRadialChartWithSelection(selectionData, fechaInicio, fechaFin) {
     // Si no hay atributos checkeados, usar los contaminantes por defecto
     const activeAttrs = attributes.length > 0
         ? attributes
-        : ['PM2_5', 'PM10', 'SO2', 'NO2', 'CO', 'O3', 'TEMP', 'PRES', 'DEWP', 'RAIN'];
+        : ['PM2_5', 'PM10', 'SO2', 'NO2', 'CO', 'O3', 'TEMP', 'PRES', 'DEWP', 'RAIN', 'WSPM', 'WD'];
+
+    // Enriquecer con Datos Meteorológicos (FUNDAMENTAL para que PRES y RAIN existan en la selección)
+    selectionData = enrichWithMeteoCache(selectionData, currentCountry);
 
     // Usar directamente los datos ya en memoria
     // Agrupar por fecha usando el objeto Date (no las strings year/month/day)
@@ -985,8 +1312,11 @@ function updateRadialChartWithSelection(selectionData, fechaInicio, fechaFin) {
             const key = attr.replace('.', '_');
             const values = entries
                 .map(d => d[key] !== undefined ? +d[key] : (d[attr] !== undefined ? +d[attr] : NaN))
-                .filter(v => !isNaN(v) && isFinite(v) && v >= 0);
-            avg[attr] = values.length > 0 ? d3.mean(values) : 0;
+                .filter(v => {
+                    const isInvalidZero = (attr === 'PRES' || attr === 'DEWP') && v === 0;
+                    return !isNaN(v) && isFinite(v) && !isInvalidZero;
+                });
+            avg[attr] = values.length > 0 ? d3.mean(values) : NaN;
         });
         return avg;
     });
@@ -1127,16 +1457,48 @@ function drawRadialChart2(data, attributes, fechaInicio, fechaFin) {
             .attr('stroke-dasharray', '4,4');
     });
 
-    // Obtener valores máximos por atributo
-    const maxValues = attributes.map(attr => d3.max(data, d => d[attr]));
+    // Obtener valores de rango por atributo
+    const attrRanges = attributes.map(attr => {
+        const values = data.map(d => d[attr]).filter(v => {
+            const isInvalidZero = (attr === 'PRES' || attr === 'DEWP' || attr === 'BAR') && v === 0;
+            return v !== null && !isNaN(v) && !isInvalidZero;
+        });
+        return values.length > 0 ? d3.extent(values) : [0, 1];
+    });
 
     attributes.forEach((attr, index) => {
-        const radialScale = d3.scaleLinear().domain([0, maxValues[index]]).range([centralHoleRadius + index * ringWidth, centralHoleRadius + (index + 1) * ringWidth]);
+        let [minVal, maxVal] = attrRanges[index];
+
+        // Ajuste especial para PRES (Presión): No empezar en 0 para ver fluctuaciones
+        // Sincronizar con Serie de Tiempo: El rango debe ocupar todo el espacio disponible del anillo
+        if (attr === 'PRES' && minVal > 900) {
+            // No agregamos padding extra para que las fluctuaciones sean máximas como en la serie temporal
+            minVal = minVal;
+            maxVal = maxVal;
+        } else if (attr === 'RAIN' || attr === 'PRECIPITACION') {
+            // Para lluvia, solemos empezar en 0
+            minVal = 0;
+        } else {
+            // Pollutants and others: start at 0
+            minVal = 0;
+        }
+
+        let radialScale;
+        if (attr === 'RAIN' || attr === 'PRECIPITACION') {
+            // Escala raíz cuadrada para lluvia para ver mejor valores pequeños (0.5, 1.0, etc)
+            radialScale = d3.scaleSqrt()
+                .domain([minVal, maxVal])
+                .range([centralHoleRadius + index * ringWidth, centralHoleRadius + (index + 1) * ringWidth]);
+        } else {
+            radialScale = d3.scaleLinear()
+                .domain([minVal, maxVal])
+                .range([centralHoleRadius + index * ringWidth, centralHoleRadius + (index + 1) * ringWidth]);
+        }
 
         // Círculos de referencia
         svg.append("circle")
             .attr("cx", 0).attr("cy", 0)
-            .attr("r", radialScale(maxValues[index]))
+            .attr("r", radialScale(maxVal))
             .attr("fill", "none")
             .attr("stroke", "#000")
             .attr("stroke-width", 1)
@@ -1146,14 +1508,21 @@ function drawRadialChart2(data, attributes, fechaInicio, fechaFin) {
         let previousDate = null;
         data.forEach((d, i) => {
             const date = new Date(d.date);
+            const value = d[attr];
+
+            // Si el valor es NaN, no dibujamos punto ni línea
+            if (isNaN(value)) {
+                previousDate = null;
+                return;
+            }
+
             const angle = angleScale(date);
-            const value = d[attr] || 0;
             const radiusValue = radialScale(value);
 
             const x = Math.sin(angle) * radiusValue;
             const y = -Math.cos(angle) * radiusValue;
 
-            svg.append('circle')
+            const circle = svg.append('circle')
                 .attr('cx', x)
                 .attr('cy', y)
                 .attr('r', 1.5) // Puntos más pequeños
@@ -1170,11 +1539,11 @@ function drawRadialChart2(data, attributes, fechaInicio, fechaFin) {
                     tooltip.style("display", "none");
                 });
 
-            // Unir puntos si las fechas son consecutivas
+            // Unir puntos si las fechas son consecutivas y existen valores
             if (previousDate) {
                 const diffDays = (date - previousDate) / (1000 * 60 * 60 * 24);
-                if (diffDays === 1) {
-                    const prevValue = data[i - 1][attr] || 0;
+                const prevValue = data[i - 1][attr];
+                if (diffDays === 1 && !isNaN(prevValue) && !isNaN(value)) {
                     const prevRadius = radialScale(prevValue);
                     const prevAngle = angleScale(previousDate);
                     const prevX = Math.sin(prevAngle) * prevRadius;
@@ -1196,7 +1565,7 @@ function drawRadialChart2(data, attributes, fechaInicio, fechaFin) {
         // Etiqueta del atributo
         svg.append('text')
             .attr('x', 0)
-            .attr('y', -radialScale(maxValues[index]) - 10)
+            .attr('y', -radialScale(maxVal) - 10)
             .attr('dy', '-0.5em')
             .attr('text-anchor', 'middle')
             .attr('font-size', '14px')
@@ -1292,23 +1661,30 @@ function normalizeData(data, selectedAttributes) {
     const means = {};
     const stdDevs = {};
 
-    // Calcular media y desviación estándar para cada atributo
     selectedAttributes.forEach(attr => {
-        const values = data.map(d => +d[attr]); // Convertir a números
-        const mean = d3.mean(values);
-        const stdDev = Math.sqrt(d3.mean(values.map(v => Math.pow(v - mean, 2)))); // Desviación estándar
-        means[attr] = mean;
-        stdDevs[attr] = stdDev;
+        const values = data.map(d => +d[attr]).filter(v => !isNaN(v) && isFinite(v));
+        if (values.length > 0) {
+            const mean = d3.mean(values);
+            const stdDev = d3.deviation(values) || 0;
+            means[attr] = mean;
+            stdDevs[attr] = stdDev;
+        } else {
+            means[attr] = 0;
+            stdDevs[attr] = 0;
+        }
     });
 
-    // Normalizar cada registro
     return data.map(d => {
         const normalizedEntry = {};
         selectedAttributes.forEach(attr => {
             const mean = means[attr];
             const stdDev = stdDevs[attr];
-            // Evitar divisiones por cero si la desviación estándar es 0
-            normalizedEntry[attr] = stdDev === 0 ? 0 : (+d[attr] - mean) / stdDev;
+            const val = +d[attr];
+            if (isNaN(val) || !isFinite(val) || stdDev === 0) {
+                normalizedEntry[attr] = 0;
+            } else {
+                normalizedEntry[attr] = (val - mean) / stdDev;
+            }
         });
         return normalizedEntry;
     });
@@ -1316,18 +1692,22 @@ function normalizeData(data, selectedAttributes) {
 
 // Función para calcular la correlación entre dos atributos en los datos normalizados
 function calculateCorrelation(data, attr1, attr2) {
-    const n = data.length;
+    // Filtrar pares válidos (ambos deben ser números)
+    const validData = data.filter(d =>
+        d[attr1] !== null && !isNaN(d[attr1]) &&
+        d[attr2] !== null && !isNaN(d[attr2])
+    );
 
-    // Manejar casos con menos de 2 registros
+    const n = validData.length;
     if (n < 2) return 0;
 
-    const mean1 = d3.mean(data, d => d[attr1]);
-    const mean2 = d3.mean(data, d => d[attr2]);
+    const mean1 = d3.mean(validData, d => d[attr1]);
+    const mean2 = d3.mean(validData, d => d[attr2]);
     let numerator = 0;
     let denominator1 = 0;
     let denominator2 = 0;
 
-    data.forEach(d => {
+    validData.forEach(d => {
         const x = d[attr1] - mean1;
         const y = d[attr2] - mean2;
         numerator += x * y;
@@ -1335,9 +1715,7 @@ function calculateCorrelation(data, attr1, attr2) {
         denominator2 += y * y;
     });
 
-    // Evitar divisiones por cero si los denominadores son 0
     if (denominator1 === 0 || denominator2 === 0) return 0;
-
     return numerator / Math.sqrt(denominator1 * denominator2);
 }
 
@@ -1374,26 +1752,36 @@ function updateCorrelationMatrix() {
 
     selectedCities.forEach(selectedCity => {
         d3.csv(`${getFusionPath()}${selectedCity}`).then(data => {
-            // Filtrar los datos por fechas si "visualizar todo" no está seleccionado
+            // ENRIQUECER CON DATOS METEOROLÓGICOS (CRUCIAL)
+            const country = currentCountry;
+            data = enrichWithMeteoCache(data, country);
+
             if (!visualizarTodo && startDate && endDate) {
+                const s = new Date(startDate);
+                const e = new Date(endDate);
                 data = data.filter(d => {
-                    const date = new Date(`${d.year}-${d.month}-${d.day}`);
-                    return date >= new Date(startDate) && date <= new Date(endDate); // Incluir las fechas límite
+                    const date = new Date(d.year, d.month - 1, d.day);
+                    return date >= s && date <= e;
                 });
             }
 
             const parsedData = d3.groups(data, d => `${d.year}-${d.month}-${d.day} ${d.hour}`).map(([datetime, entries]) => {
                 const avg = {};
                 selectedAttributes.forEach(attr => {
-                    const values = entries.map(d => +d[attr.replace('.', '_')]).filter(v => !isNaN(v));
-                    avg[attr] = values.length > 0 ? d3.mean(values) : 0;
+                    const values = entries.map(d => {
+                        const val = +d[attr.replace('.', '_')];
+                        return isNaN(val) ? +d[attr] : val;
+                    }).filter(v => !isNaN(v) && isFinite(v));
+
+                    avg[attr] = values.length > 0 ? d3.mean(values) : null;
                 });
                 return avg;
             });
 
-            console.log("DATOS DE LPARCER AL INICIAR", parsedData);
+            // Filtrar registros que tengan al menos algún dato válido
+            const cleanData = parsedData.filter(d => Object.values(d).some(v => v !== null));
 
-            const correlationMatrix = calculateCorrelationMatrix(parsedData, selectedAttributes);
+            const correlationMatrix = calculateCorrelationMatrix(cleanData, selectedAttributes);
             const matrizdistancia = calculateDistanceMatrix(correlationMatrix);
             const hierarchyData = buildHierarchy(selectedAttributes, matrizdistancia);
 
@@ -1600,7 +1988,7 @@ function createRadialDendrogram(hierarchyData, selectedAttributes, distanceMatri
 
 // Función para determinar si un atributo es meteorológico
 function isMeteorologicalAttribute(attribute) {
-    const meteorologicalAttributes = ['TEMP', 'PRES', 'DEWP', 'RAIN']; // Asegúrate de que estos sean los atributos correctos
+    const meteorologicalAttributes = ['TEMP', 'PRES', 'DEWP', 'RAIN', 'WSPM', 'WD']; // Asegúrate de que estos sean los atributos correctos
     return meteorologicalAttributes.includes(attribute);
 }
 
@@ -1612,6 +2000,7 @@ function updateTimeSeriesChart(selectedCity, startDate, endDate, selectedDates =
     const height = 360 - margin.top - margin.bottom;
     // console.log(startDate, endDate,);
     // Añadir y configurar el checkbox AQI
+    // No duplicar listeners si el contenedor ya existe
     let aqiCheckboxContainer = container.select('#aqi-checkbox-container');
     if (aqiCheckboxContainer.empty()) {
         aqiCheckboxContainer = container.append('div')
@@ -1624,35 +2013,33 @@ function updateTimeSeriesChart(selectedCity, startDate, endDate, selectedDates =
             .style('gap', '5px')
             .style('background-color', 'rgba(255, 255, 255, 0.8)')
             .style('padding', '5px')
-            .style('border-radius', '4px');
+            .style('border-radius', '4px')
+            .style('z-index', '10');
 
         aqiCheckboxContainer.append('input')
             .attr('type', 'checkbox')
             .attr('id', 'aqi-size-toggle')
-            .style('cursor', 'pointer');
+            .property('checked', localStorage.getItem('aqiCheckboxState') === 'true')
+            .style('cursor', 'pointer')
+            .on('change', function () {
+                const checked = d3.select(this).property('checked');
+                localStorage.setItem('aqiCheckboxState', checked);
+                d3.select('#serie-temporal').selectAll('circle')
+                    .transition().duration(300)
+                    .attr('r', function () {
+                        const attribute = d3.select(this).attr('class');
+                        if (!checked) return 0;
+                        return isMeteorologicalAttribute(attribute) ? 2 : 4;
+                    });
+            });
 
         aqiCheckboxContainer.append('label')
             .attr('for', 'aqi-size-toggle')
             .text('AQI')
             .style('font-weight', 'bold')
-            .style('cursor', 'pointer')
-            .style('user-select', 'none');
+            .style('cursor', 'pointer');
     }
 
-    const aqiCheckbox = document.querySelector('#aqi-size-toggle');
-    const savedAqiState = localStorage.getItem('aqiCheckboxState');
-    aqiCheckbox.checked = savedAqiState === 'true'; // Restaurar el estado
-
-    aqiCheckbox.addEventListener('change', function () {
-        localStorage.setItem('aqiCheckboxState', aqiCheckbox.checked); // Guardar el estado
-        d3.select('#serie-temporal')
-            .selectAll('circle')
-            .transition()
-            .duration(200)
-            .attr('r', aqiCheckbox.checked ? 4 : 0);
-    });
-
-    // Añadir y configurar el checkbox Line
     let lineCheckboxContainer = container.select('#line-checkbox-container');
     if (lineCheckboxContainer.empty()) {
         lineCheckboxContainer = container.append('div')
@@ -1665,130 +2052,83 @@ function updateTimeSeriesChart(selectedCity, startDate, endDate, selectedDates =
             .style('gap', '5px')
             .style('background-color', 'rgba(255, 255, 255, 0.8)')
             .style('padding', '5px')
-            .style('border-radius', '4px');
+            .style('border-radius', '4px')
+            .style('z-index', '10');
 
         lineCheckboxContainer.append('input')
             .attr('type', 'checkbox')
             .attr('id', 'line-size-toggle')
-            .style('cursor', 'pointer');
+            .property('checked', (localStorage.getItem('lineCheckboxState') || 'true') === 'true')
+            .style('cursor', 'pointer')
+            .on('change', function () {
+                const checked = d3.select(this).property('checked');
+                localStorage.setItem('lineCheckboxState', checked);
+                d3.select('#serie-temporal').selectAll('path.line')
+                    .transition().duration(300)
+                    .style('opacity', function () {
+                        const isSelected = d3.select(this).classed('selected');
+                        return checked ? (isSelected ? 1 : 0.1) : 0;
+                    });
+            });
 
         lineCheckboxContainer.append('label')
             .attr('for', 'line-size-toggle')
             .text('Line')
             .style('font-weight', 'bold')
-            .style('cursor', 'pointer')
-            .style('user-select', 'none');
+            .style('cursor', 'pointer');
     }
 
-    const lineCheckbox = document.querySelector('#line-size-toggle');
-    const savedLineState = localStorage.getItem('lineCheckboxState');
-    lineCheckbox.checked = savedLineState === 'true'; // Restaurar el estado
-
-    lineCheckbox.addEventListener('change', function () {
-        localStorage.setItem('lineCheckboxState', lineCheckbox.checked); // Guardar el estado
-
-        // Actualizar opacidades de las líneas según el estado del checkbox
-        d3.select('#serie-temporal')
-            .selectAll('path.line')
-            .transition()
-            .duration(200)
-            .style('opacity', function () {
-                const pathElement = d3.select(this);
-                const isSelected = pathElement.classed('selected');
-                return lineCheckbox.checked ? (isSelected ? 1 : 0.1) : 0;
-            });
-    });
 
 
+    const country = currentCountry;
+    loadMeteoForCountry(country).then(() => {
+        d3.csv(`${getFusionPath()}${selectedCity}`).then(data => {
+            data = enrichWithMeteoCache(data, country);
 
-    const contaminantAttributes = ['PM2_5', 'PM10', 'SO2', 'NO2', 'CO', 'O3'];
-    const meteorologicalAttributes = ['TEMP', 'PRES', 'DEWP', 'RAIN'];
-
-    d3.csv(`${getFusionPath()}${selectedCity}`).then(data => {
-        const attributes = [...contaminantAttributes, ...meteorologicalAttributes];
-
-        let selectedAttributes = JSON.parse(localStorage.getItem('selectedAttributes')) || ["PM2_5"];
-
-        const attributeColors = {
-            'PM2_5': '#FF0000',
-            'PM10': '#FF9900',
-            'SO2': '#FFD700',
-            'NO2': '#d500f1',
-            'CO': '#00CED1',
-            'O3': '#0000FF',
-            'TEMP': '#008000',
-            'PRES': '#8B0000',
-            'DEWP': '#4B0082',
-            'RAIN': '#1E90FF'
-        };
-        // Paso 1: Procesar los datos y calcular promedio de WSPM por día
-        const parsedData = d3.group(
-            data,
-            d => d3.timeFormat("%Y-%m-%d")(new Date(d.year, d.month - 1, d.day)) // Agrupar por día
-        );
-
-        const dailyData = Array.from(parsedData, ([date, values]) => {
-            const WSPMValues = values.map(v => +v.WSPM).filter(v => !isNaN(v)); // Obtener valores numéricos de WSPM
-
-            // Calcular el promedio de WSPM para el día
-            const averageWSPM = WSPMValues.length > 0
-                ? WSPMValues.reduce((acc, val) => acc + val, 0) / WSPMValues.length
-                : null;
-
-            return {
-                date: new Date(date),
-                WSPMValues, // Todos los valores de WSPM del día
-                averageWSPM, // Promedio de WSPM del día
+            const attributeColors = {
+                'PM2_5': '#FF0000', 'PM10': '#FF9900', 'SO2': '#FFD700', 'NO2': '#d500f1',
+                'CO': '#00CED1', 'O3': '#0000FF', 'TEMP': '#008000', 'PRES': '#8B0000',
+                'DEWP': '#4B0082', 'RAIN': '#1E90FF', 'WSPM': '#7f8c8d', 'WD': '#95a5a6'
             };
-        });
 
-        // console.log("Datos de velocidad del viento por día con promedio:", dailyData);
+            const allTsAttributes = [...contaminantAttributes, ...meteorologicalAttributes];
+            let selectedAttributes = JSON.parse(localStorage.getItem('selectedAttributes')) || ["PM2_5"];
 
-        let checkboxContainer = container.select('#checkbox-container');
-        if (checkboxContainer.empty()) {
-            checkboxContainer = container.append('div')
-                .attr('id', 'checkbox-container')
-                .style('display', 'flex')
-                .style('gap', '10px')
-                .style('flex-wrap', 'wrap')
-                .style('font-weight', 'bold')
-                .style('margin', '30px 0 10px 50px');
-        } else {
-            checkboxContainer.selectAll('*').remove();
-        }
-
-        checkboxContainer.selectAll('div')
-            .data(attributes)
-            .join('div')
-            .style('display', 'flex')
-            .style('align-items', 'center')
-            .style('gap', '5px')
-            .each(function (attribute) {
-                const div = d3.select(this);
-                div.append('input')
-                    .attr('type', 'checkbox')
-                    .attr('value', attribute)
-                    .property('checked', selectedAttributes.includes(attribute))
-                    .on('change', function () {
-                        selectedAttributes = d3.selectAll('#checkbox-container input:checked')
-                            .nodes()
-                            .map(node => node.value);
-
-                        // Guarda el estado en el localStorage
-                        localStorage.setItem('selectedAttributes', JSON.stringify(selectedAttributes));
-
-                        // Llama a drawChart para actualizar el gráfico
-                        drawChart(selectedAttributes, data, startDate, endDate, selectedDates, dailyData);
-                    });
-
-                div.append('label')
-                    .text(attribute)
-                    .style('cursor', 'pointer')
-                    .style('color', attributeColors[attribute])
-                    .style('margin', '0')
-                    .style('vertical-align', 'middle');
+            // Procesar dailyData
+            const parsedData = d3.group(data, d => d3.timeFormat("%Y-%m-%d")(new Date(d.year, d.month - 1, d.day)));
+            const dailyData = Array.from(parsedData, ([date, values]) => {
+                const WSPMValues = values.map(v => +v.WSPM).filter(v => !isNaN(v));
+                const averageWSPM = WSPMValues.length > 0 ? WSPMValues.reduce((a, b) => a + b, 0) / WSPMValues.length : null;
+                return { date: new Date(date), WSPMValues, averageWSPM };
             });
-        drawChart(selectedAttributes, data, startDate, endDate, selectedDates, dailyData);
+
+            // Checkboxes internos
+            let checkboxContainer = container.select('#checkbox-container');
+            if (checkboxContainer.empty()) {
+                checkboxContainer = container.append('div').attr('id', 'checkbox-container')
+                    .style('display', 'flex').style('gap', '10px').style('flex-wrap', 'wrap')
+                    .style('font-weight', 'bold').style('margin', '30px 0 10px 50px');
+            } else {
+                checkboxContainer.selectAll('*').remove();
+            }
+
+            checkboxContainer.selectAll('div')
+                .data(allTsAttributes)
+                .join('div').style('display', 'flex').style('align-items', 'center').style('gap', '5px')
+                .each(function (attr) {
+                    const div = d3.select(this);
+                    div.append('input').attr('type', 'checkbox').attr('value', attr)
+                        .property('checked', selectedAttributes.includes(attr))
+                        .on('change', function () {
+                            selectedAttributes = d3.selectAll('#checkbox-container input:checked').nodes().map(n => n.value);
+                            localStorage.setItem('selectedAttributes', JSON.stringify(selectedAttributes));
+                            drawChart(selectedAttributes, data, startDate, endDate, selectedDates, dailyData);
+                        });
+                    div.append('label').text(attr).style('cursor', 'pointer').style('color', attributeColors[attr]);
+                });
+
+            drawChart(selectedAttributes, data, startDate, endDate, selectedDates, dailyData);
+        });
     });
 
 
@@ -1810,20 +2150,27 @@ function updateTimeSeriesChart(selectedCity, startDate, endDate, selectedDates =
         // Filtrar datos si startDate y endDate están definidos
         // Usar constructor local para evitar problemas de desfase horario (UTC vs Local)
         let filteredData = data.map(d => ({
+            ...d,
             date: new Date(+d.year, +d.month - 1, +d.day),
             _dateKey: `${+d.year}-${+d.month}-${+d.day}`,
-            value: selectedAttributes.reduce((acc, attribute) => {
+            value: allPossibleAttributes.reduce((acc, attribute) => {
                 // Soporte para ambos nombres de CO (con punto o guion bajo)
-                acc[attribute] = +d[attribute.replace('.', '_')];
+                acc[attribute] = +d[attribute.replace('.', '_')] || +d[attribute];
                 return acc;
             }, {})
         }));
 
         if (startDate && endDate) {
-            const startParts = startDate.split('-').map(Number);
-            const endParts = endDate.split('-').map(Number);
-            const start = new Date(startParts[0], startParts[1] - 1, startParts[2]);
-            const end = new Date(endParts[0], endParts[1] - 1, endParts[2]);
+            let start, end;
+            if (typeof startDate === 'string') {
+                const startParts = startDate.split('-').map(Number);
+                const endParts = String(endDate).split('-').map(Number);
+                start = new Date(startParts[0], startParts[1] - 1, startParts[2]);
+                end = new Date(endParts[0], endParts[1] - 1, endParts[2]);
+            } else {
+                start = startDate;
+                end = endDate;
+            }
             filteredData = filteredData.filter(d => d.date >= start && d.date <= end);
         }
 
@@ -1851,18 +2198,31 @@ function updateTimeSeriesChart(selectedCity, startDate, endDate, selectedDates =
         const averagedData = d3.groups(filteredData, d => d._dateKey)
             .map(([dateKey, values]) => ({
                 date: values[0].date,
-                value: selectedAttributes.reduce((acc, attribute) => {
-                    acc[attribute] = d3.mean(values, v => v.value[attribute]);
+                value: allPossibleAttributes.reduce((acc, attribute) => {
+                    let vals = values.map(v => v.value[attribute]);
+                    // Filtro de ceros para meteorología para evitar errores de sensor/escala
+                    if (isMeteorologicalAttribute(attribute) || windAttributes.includes(attribute)) {
+                        // Ignorar ceros solo en PRES y DEWP (errores comunes)
+                        // Para TEMP (0 es válido), RAIN (0 es seco), WSPM (0 es calma), WD (0 es N) mantenemos ceros
+                        if (['PRES', 'DEWP'].includes(attribute)) {
+                            const nonZero = vals.filter(v => v > 0);
+                            vals = (nonZero.length > 0) ? nonZero : [NaN];
+                        }
+                    }
+                    acc[attribute] = d3.mean(vals);
                     return acc;
                 }, {}),
-                // Comparar con el mismo formato YYYY-M-D sin padding
                 isSelected: selectedDateSet ? selectedDateSet.has(dateKey) : true
             }));
 
         const minValues = {};
         const maxValues = {};
         selectedAttributes.forEach(attribute => {
-            const values = averagedData.map(d => d.value[attribute]).filter(v => !isNaN(v));
+            let values = averagedData.map(d => d.value[attribute]).filter(v => !isNaN(v));
+            if (isMeteorologicalAttribute(attribute)) {
+                const nonZero = values.filter(v => v > 0);
+                if (nonZero.length > 0) values = nonZero;
+            }
             minValues[attribute] = d3.min(values);
             maxValues[attribute] = d3.max(values);
         });
@@ -1936,71 +2296,69 @@ function updateTimeSeriesChart(selectedCity, startDate, endDate, selectedDates =
         });
 
         const lineCheckbox = document.querySelector('#line-size-toggle');
+        const showAllLines = lineCheckbox && lineCheckbox.checked;
 
-        if (lineCheckbox && lineCheckbox.checked) {
-            selectedAttributes.forEach(attribute => {
-                const lineData = normalizedData.filter(d => !isNaN(d.normalizedValues[attribute]));
+        selectedAttributes.forEach(attribute => {
+            const isMet = isMeteorologicalAttribute(attribute);
+            if (!showAllLines && !isMet) return; // Forzar líneas para meteorología
+            const lineData = normalizedData.filter(d => !isNaN(d.normalizedValues[attribute]));
 
-                // Crear datos separados para las líneas seleccionadas y no seleccionadas
-                const selectedLineData = lineData.filter(d => d.isSelected).map(d => ({
-                    x: xScale(d.date),
-                    y: yScale(d.normalizedValues[attribute]),
-                    date: d.date
-                }));
+            // Crear datos separados para las líneas seleccionadas y no seleccionadas
+            const selectedLineData = lineData.filter(d => d.isSelected).map(d => ({
+                x: xScale(d.date),
+                y: yScale(d.normalizedValues[attribute]),
+                date: d.date
+            }));
 
-                const unselectedLineData = lineData.map(d => ({
-                    x: xScale(d.date),
-                    y: yScale(d.normalizedValues[attribute]),
-                    date: d.date
-                }));
+            const unselectedLineData = lineData.map(d => ({
+                x: xScale(d.date),
+                y: yScale(d.normalizedValues[attribute]),
+                date: d.date
+            }));
 
-                // Umbral de continuidad (por ejemplo, 1 día)
-                const continuityThreshold = 1 * 24 * 60 * 60 * 1000; // 1 día en milisegundos
+            // Umbral de continuidad (por ejemplo, 1 día)
+            const continuityThreshold = 1 * 24 * 60 * 60 * 1000; // 1 día en milisegundos
 
-                // Función para dividir en segmentos continuos
-                const divideIntoSegments = data => {
-                    const segments = [];
-                    let currentSegment = [];
+            // Función para dividir en segmentos continuos
+            const divideIntoSegments = data => {
+                const segments = [];
+                let currentSegment = [];
 
-                    for (let i = 0; i < data.length; i++) {
-                        if (currentSegment.length === 0) {
-                            currentSegment.push(data[i]);
+                for (let i = 0; i < data.length; i++) {
+                    if (currentSegment.length === 0) {
+                        currentSegment.push(data[i]);
+                    } else {
+                        const lastPoint = currentSegment[currentSegment.length - 1];
+                        const currentPoint = data[i];
+                        if (currentPoint.date - lastPoint.date <= continuityThreshold) {
+                            currentSegment.push(currentPoint);
                         } else {
-                            const lastPoint = currentSegment[currentSegment.length - 1];
-                            const currentPoint = data[i];
-                            if (currentPoint.date - lastPoint.date <= continuityThreshold) {
-                                currentSegment.push(currentPoint);
-                            } else {
-                                segments.push(currentSegment);
-                                currentSegment = [currentPoint];
-                            }
+                            segments.push(currentSegment);
+                            currentSegment = [currentPoint];
                         }
                     }
-                    if (currentSegment.length > 0) {
-                        segments.push(currentSegment);
-                    }
-                    return segments;
-                };
-
-                // Dividir datos seleccionados en segmentos
-                const selectedSegments = divideIntoSegments(selectedLineData);
-
-                // Dibujar la línea continua para los datos no seleccionados con menor opacidad
-                if (unselectedLineData.length > 1) {
-                    drawLine(chartSvg, unselectedLineData, attribute, attributeColors[attribute], 0.3); // Opacidad 0.3
                 }
+                if (currentSegment.length > 0) {
+                    segments.push(currentSegment);
+                }
+                return segments;
+            };
 
-                // Dibujar las líneas para los segmentos seleccionados con opacidad completa
-                selectedSegments.forEach(segment => {
-                    if (segment.length > 1) { // Asegúrate de que haya suficientes puntos para una línea
-                        drawLine(chartSvg, segment, attribute, attributeColors[attribute], 1); // Opacidad completa
-                    }
-                });
+            // Dividir datos seleccionados en segmentos
+            const selectedSegments = divideIntoSegments(selectedLineData);
+
+            // Dibujar la línea continua para los datos no seleccionados con menor opacidad
+            if (unselectedLineData.length > 1) {
+                drawLine(chartSvg, unselectedLineData, attribute, attributeColors[attribute], 0.3); // Opacidad 0.3
+            }
+
+            // Dibujar las líneas para los segmentos seleccionados con opacidad completa
+            selectedSegments.forEach(segment => {
+                if (segment.length > 1) { // Asegúrate de que haya suficientes puntos para una línea
+                    drawLine(chartSvg, segment, attribute, attributeColors[attribute], 1); // Opacidad completa
+                }
             });
-        }
-
-
-
+        });
 
         const tooltip = d3.select("body").append("div")
             .attr("class", "tooltip")
@@ -2037,8 +2395,16 @@ function updateTimeSeriesChart(selectedCity, startDate, endDate, selectedDates =
 
         // Reset the chart on double-click
         chartSvg.on("dblclick", function () {
-            xScale.domain(d3.extent(normalizedData, d => d.date)); // Restablecer dominio de la escala X
-            drawChart(selectedAttributes, data, null, null, selectedDates, dailyData); // Volver a cargar los datos completos
+            // En lugar de ir a null (rango completo de 2013-2017),
+            // regresamos al rango que esté actualmente seleccionado en los filtros globales
+            const globalStart = document.getElementById('fecha-inicio')?.value;
+            const globalEnd = document.getElementById('fecha-fin')?.value;
+            const visualizarTodo = document.getElementById('visualizar-todo')?.checked;
+
+            const rStart = visualizarTodo ? null : globalStart;
+            const rEnd = visualizarTodo ? null : globalEnd;
+
+            drawChart(selectedAttributes, data, rStart, rEnd, selectedDates, dailyData);
         });
         // Dibujar los puntos
         selectedAttributes.forEach(attribute => {
@@ -2050,9 +2416,10 @@ function updateTimeSeriesChart(selectedCity, startDate, endDate, selectedDates =
                 .attr('class', attribute)
                 .attr('cx', d => xScale(d.date))
                 .attr('cy', d => yScale(d.normalizedValues[attribute]))
-                .attr('r', () => {
+                .attr('r', d => {
                     const aqiCheckbox = document.querySelector('#aqi-size-toggle');
-                    return aqiCheckbox && aqiCheckbox.checked ? 4 : 0;
+                    if (!aqiCheckbox || !aqiCheckbox.checked) return 0;
+                    return isMeteorologicalAttribute(attribute) ? 2 : 4;
                 })
                 .attr('fill', d => getAQIColor(d.value[attribute], attribute))
                 .attr('stroke', 'black')
@@ -2062,22 +2429,10 @@ function updateTimeSeriesChart(selectedCity, startDate, endDate, selectedDates =
                     const [mouseX, mouseY] = d3.pointer(event);
                     const point = d3.select(this);
 
-                    // Sumar un día a la fecha
-                    const modifiedDate = d3.timeDay.offset(d.date, -1);
-                    const pointDate = d3.timeFormat("%Y-%m-%d")(modifiedDate);
+                    const windSpeed = d.value.WSPM !== undefined ? (+d.value.WSPM).toFixed(2) : 'No disponible';
+                    const windDir = d.value.WD !== undefined ? getWindDirectionText(+d.value.WD) : 'No disponible';
 
-                    // Filtrar los registros de dailyData para la fecha modificada
-                    const matchingRecords = dailyData.filter(record => d3.timeFormat("%Y-%m-%d")(record.date) === pointDate);
-
-                    // Calcular el promedio de WSPMValues
-                    const windSpeed = matchingRecords.length > 0
-                        ? (matchingRecords.reduce((sum, record) => {
-                            // Sumar todos los valores en WSPMValues
-                            const totalWSPM = record.WSPMValues.reduce((acc, value) => acc + value, 0);
-                            // Calcular el promedio
-                            return sum + (totalWSPM / record.WSPMValues.length);
-                        }, 0) / matchingRecords.length).toFixed(2)
-                        : 'No disponible';
+                    // Transición para agrandar el punto seleccionado
 
                     // Transición para agrandar el punto seleccionado
                     point.transition()
@@ -2116,7 +2471,8 @@ function updateTimeSeriesChart(selectedCity, startDate, endDate, selectedDates =
                         <strong>Contaminante:</strong> ${attribute}<br>
                         <strong>Fecha:</strong> ${d3.timeFormat("%d/%m/%Y")(d.date)}<br>
                         <strong>Concentración:</strong> ${d.value[attribute]?.toFixed(2)} ${units[attribute] || ''}<br>
-                        <strong>Velocidad del viento:</strong> ${windSpeed} m/s<br>
+                        <strong>Velocidad del viento:</strong> ${d.value.WSPM?.toFixed(2) || 'N/A'} m/s<br>
+                        <strong>Dirección del viento:</strong> ${getWindDirectionText(d.value.WD || 0)}<br>
                     `);
 
 
@@ -2477,6 +2833,7 @@ function drawLine(chartSvg, points, attribute, color, opacity = 1, isSelected = 
     const lineGenerator = d3.line()
         .x(d => d.x)
         .y(d => d.y)
+        .defined(d => !isNaN(d.y) && d.y !== null)
         .curve(d3.curveMonotoneX);
 
     chartSvg.append('path')
@@ -2609,6 +2966,9 @@ async function updateUMAP() {
     const visualizarTodo = document.getElementById('visualizar-todo').checked;
     const fechaInicio = !visualizarTodo ? document.getElementById('fecha-inicio').value : null;
     const fechaFin = !visualizarTodo ? document.getElementById('fecha-fin').value : null;
+
+    // Asegurar que el cache meteorológico esté cargado antes de plotear
+    await loadMeteoForCountry(currentCountry);
 
     // Obtener y filtrar los datos (Optimizado: una sola carga para todo)
     const data = await fetchData(selectedCity);
@@ -3406,7 +3766,7 @@ function plotUMAP(data, fechaInicio, fechaFin) {
 
             d3.select(this)
                 .attr("r", 6)
-                .attr("stroke-width", d => clusterDateSet.has(`${+d.year}-${+d.month}-${+d.day}`) ? 1 : 0);
+                .attr("stroke-width", 0.5);
         });
 
     function highlightSeason(season, data, svg, xScale, yScale) {
@@ -3505,6 +3865,13 @@ function plotUMAP(data, fechaInicio, fechaFin) {
         isDrawing = true;
         points = []; // Reiniciar puntos
 
+        // Restaurar todos los puntos a su estado base antes de un nuevo lasso
+        g.selectAll("circle")
+            .attr("opacity", 1)
+            .attr("r", 6)
+            .attr("stroke", "black")
+            .attr("stroke-width", 0.5);
+
         const [startX, startY] = d3.pointer(event, g.node());
         points.push([startX, startY]);
 
@@ -3567,21 +3934,29 @@ function plotUMAP(data, fechaInicio, fechaFin) {
         updateCorrelationMatrixnew(selectedDates);
         drawThemeRiver(cityFile, selectedDates);
         updateRadialChartWithSelection(selectionData, fechaInicio, fechaFin);
-        plotUMAPcontCluster(filteredDataCont, fechaInicio, fechaFin, selectedDates, "blue");
-        plotUMAPmetCluster(filterDataMet, fechaInicio, fechaFin, selectedDates, "blue");
+        // Solo llamar si los contenedores existen en el DOM (pueden no estar en el layout actual)
+        if (document.getElementById("umap-plot-contaminacion"))
+            plotUMAPcontCluster(filteredDataCont, fechaInicio, fechaFin, selectedDates, "blue");
+        if (document.getElementById("umap-plot-meteorologia"))
+            plotUMAPmetCluster(filterDataMet, fechaInicio, fechaFin, selectedDates, "blue");
 
-        // Restaurar todos los puntos a su estado original
+        // --- Dimming: difuminar NO seleccionados, mantener seleccionados ---
+        const selectedSet = new Set(selectionData.map(d => `${d.year}-${d.month}-${d.day}-${d.station || ''}`) );
+
+        // 1. Difuminar TODOS los puntos
         g.selectAll("circle")
+            .attr("opacity", 0.08)
             .attr("r", 6)
-            .attr("stroke", "none");
+            .attr("stroke", "black")
+            .attr("stroke-width", 0.5);
 
-        // Resaltar puntos seleccionados dentro de g (donde viven los círculos)
-        const selectedSet = new Set(selectionData.map(d => `${d.year}-${d.month}-${d.day}-${d.station || ''}`));
+        // 2. Restaurar los seleccionados con opacidad completa y stroke negro fino original
         g.selectAll("circle")
             .filter(d => selectedSet.has(`${d.year}-${d.month}-${d.day}-${d.station || ''}`))
-            .attr("r", 8)
-            .attr("stroke", "blue")
-            .attr("stroke-width", 3)
+            .attr("opacity", 1)
+            .attr("r", 6)
+            .attr("stroke", "black")
+            .attr("stroke-width", 0.5)
             .raise();
     });
 
@@ -3715,10 +4090,9 @@ function plotUMAP(data, fechaInicio, fechaFin) {
 
 
 function plotUMAPmetCluster(data, fechaInicio, fechaFin, clusterDates, clusterColor) {
-    // Limpiar el gráfico anterior
+    // Salir silenciosamente si el contenedor no existe en el DOM
+    if (!document.getElementById("umap-plot-meteorologia")) return;
     d3.select("#umap-plot-meteorologia").selectAll("*").remove();
-    // console.log("Datos de entrada del cluster seleccionado - Fechas:", clusterDates);
-    // console.log("Color del Cluster seleccionado:", clusterColor);
 
     // Dimensiones del contenedor
     const container = d3.select("#umap-plot-meteorologia");
@@ -4069,10 +4443,9 @@ function plotUMAPfusionCluster(data, fechaInicio, fechaFin, clusterDates, cluste
 }
 
 function plotUMAPcontCluster(data, fechaInicio, fechaFin, clusterDates, clusterColor) {
-    // Limpiar el gráfico anterior
+    // Salir silenciosamente si el contenedor no existe en el DOM
+    if (!document.getElementById("umap-plot-contaminacion")) return;
     d3.select("#umap-plot-contaminacion").selectAll("*").remove();
-    console.log("Datos de entrada del cluster seleccionado - Fechas:", clusterDates);
-    console.log("Color del Cluster seleccionado:", clusterColor);
 
     // Dimensiones del contenedor
     const container = d3.select("#umap-plot-contaminacion");
@@ -7182,12 +7555,14 @@ const attributeColorsCONT = {
 };
 
 // Atributos y colores para meteorología
-const attributesMET = ['TEMP', 'PRES', 'DEWP', 'RAIN'];
+const attributesMET = ['TEMP', 'PRES', 'DEWP', 'RAIN', 'WSPM', 'WD'];
 const attributeColorsMET = {
     'TEMP': '#008000',  // Verde
     'PRES': '#8B0000',  // Rojo oscuro
     'DEWP': '#4B0082',  // Púrpura
-    'RAIN': '#1E90FF'   // Azul claro
+    'RAIN': '#1E90FF',  // Azul claro
+    'WSPM': '#7f8c8d',  // Gris
+    'WD': '#95a5a6'     // Gris claro
 };
 
 // Unidades de medida para meteorología
@@ -7195,7 +7570,9 @@ const metUnits = {
     'TEMP': '°C',
     'PRES': 'hPa',
     'DEWP': '°C',
-    'RAIN': 'mm'
+    'RAIN': 'mm',
+    'WSPM': 'm/s',
+    'WD': '°'
 };
 
 function generateStackedBarPlot(filteredData, station, selectedRange) {
@@ -7549,14 +7926,26 @@ function plotTimeSeries(attr, data) {
         .append("g")
         .attr("transform", `translate(${margin.left},${margin.top})`);
 
-    const uniqueStationIds = [...new Set(data.map(d => d.station))];
+    // Para atributos meteorológicos, enriquecer con datos del cache de Meteo
+    const meteoAttributes = ['TEMP', 'PRES', 'DEWP', 'RAIN', 'WSPM'];
+    let enrichedData = data;
+    if (meteoAttributes.includes(attr)) {
+        if (!meteoDataCache[currentCountry]) {
+            // Cargar asincrónicamente y re-renderizar
+            loadMeteoForCountry(currentCountry).then(() => plotTimeSeries(attr, data));
+            return;
+        }
+        enrichedData = enrichWithMeteoCache(data, currentCountry);
+    }
+
+    const uniqueStationIds = [...new Set(enrichedData.map(d => d.station))];
     const allStationObjs = (stationMeta && stationMeta.stations) ? Object.values(stationMeta.stations).flat() : [];
     const stationData = uniqueStationIds.map(sId => {
         const stationObj = allStationObjs.find(s => String(s.id) === String(sId));
         return {
             station: sId,
             name: stationObj ? stationObj.name : `Station ${sId}`,
-            values: data.filter(d => String(d.station) === String(sId)).sort((a, b) => a.date - b.date)
+            values: enrichedData.filter(d => String(d.station) === String(sId)).sort((a, b) => a.date - b.date)
         };
     });
 
@@ -7565,7 +7954,7 @@ function plotTimeSeries(attr, data) {
         .range([0, width]);
 
     const yScale = d3.scaleLinear()
-        .domain([d3.min(data, d => +d[attr]) || 0, d3.max(data, d => +d[attr]) || 0])
+        .domain([d3.min(enrichedData, d => +d[attr]) || 0, d3.max(enrichedData, d => +d[attr]) || 0])
         .range([height, 0]);
 
     const line = d3.line()
