@@ -3941,7 +3941,7 @@ function plotUMAP(data, fechaInicio, fechaFin) {
             plotUMAPmetCluster(filterDataMet, fechaInicio, fechaFin, selectedDates, "blue");
 
         // --- Dimming: difuminar NO seleccionados, mantener seleccionados ---
-        const selectedSet = new Set(selectionData.map(d => `${d.year}-${d.month}-${d.day}-${d.station || ''}`) );
+        const selectedSet = new Set(selectionData.map(d => `${d.year}-${d.month}-${d.day}-${d.station || ''}`));
 
         // 1. Difuminar TODOS los puntos
         g.selectAll("circle")
@@ -6434,6 +6434,21 @@ function updateCorrelationMatrixnew(dates) {
 }
 
 
+let lastEvolutionDraw = null;
+
+async function refreshEvolutionPanelChart() {
+    if (!lastEvolutionDraw || !lastEvolutionDraw.cityFile) return;
+    try {
+        await drawThemeRiver(
+            lastEvolutionDraw.cityFile,
+            lastEvolutionDraw.dates,
+            lastEvolutionDraw.preloadedData
+        );
+    } catch (e) {
+        console.warn("refreshEvolutionPanelChart:", e);
+    }
+}
+
 async function drawThemeRiver(cityFile, dates, preloadedData) {
     // Normalize input dates to a consistent "YYYY-M-D" key format (no zero padding)
     // using Integer arithmetic to avoid timezone/parsing issues
@@ -6501,33 +6516,90 @@ async function drawThemeRiver(cityFile, dates, preloadedData) {
     //     return;
     // }
 
-    const contaminantAttributes = ["O3", "CO", "NO2", "SO2", "PM10", "PM2_5"];
-    const meteorologicalAttributes = ["RAIN", "DEWP", "PRES", "TEMP"];
-    const attributes = [...contaminantAttributes, ...meteorologicalAttributes];
+    const evolutionAttributeOrder = [
+        "PM2_5", "PM10", "SO2", "NO2", "CO", "O3", "TEMP", "PRES", "DEWP", "RAIN"
+    ];
 
-    const attributeStats = attributes.reduce((stats, attr) => {
-        const values = filteredData.map(d => d[attr]).filter(value => value !== null);
-        stats[attr] = { min: Math.min(...values), max: Math.max(...values) };
+    const attributeStats = evolutionAttributeOrder.reduce((stats, attr) => {
+        const values = filteredData.map(d => d[attr]).filter(value => value !== null && !isNaN(value));
+        const min = values.length ? d3.min(values) : 0;
+        const max = values.length ? d3.max(values) : 1;
+        stats[attr] = { min, max: max > min ? max : min + 1e-9 };
         return stats;
     }, {});
 
     const normalizedData = filteredData.map(d => {
         const normalized = { date: d.date };
-        attributes.forEach(attr => {
+        evolutionAttributeOrder.forEach(attr => {
             const { min, max } = attributeStats[attr];
-            normalized[attr] = d[attr] !== null && max > min
+            normalized[attr] = d[attr] !== null && !isNaN(d[attr]) && max > min
                 ? (d[attr] - min) / (max - min)
                 : 0.5;
         });
         return normalized;
     });
 
-    const margin = { top: 100, right: 10, bottom: 70, left: 30 };
-    const width = 600 - margin.left - margin.right;
-    const height = 420 - margin.top - margin.bottom;
+    const togglesHost = d3.select("#evolution-toggles");
+    if (!togglesHost.empty() && togglesHost.selectAll("label.evolution-attr-toggle").empty()) {
+        evolutionAttributeOrder.forEach(attr => {
+            const lab = togglesHost.append("label")
+                .attr("class", "evolution-attr-toggle")
+                .style("color", attributeColors[attr] || "#333");
+            lab.append("input")
+                .attr("type", "checkbox")
+                .attr("class", "evolution-attr-cb")
+                .attr("value", attr)
+                .property("checked", true);
+            lab.append("span").text(attr);
+        });
+    }
+
+    function getActiveEvolutionKeys() {
+        return evolutionAttributeOrder.filter(attr => {
+            const el = document.querySelector(`#evolution-toggles input.evolution-attr-cb[value="${attr}"]`);
+            return !el || el.checked;
+        });
+    }
 
     const container = d3.select("#evolution-plot");
     container.selectAll("*").remove();
+
+    const evolutionEl = document.getElementById("evolution");
+    const plotEl = document.getElementById("evolution-plot");
+    const isEvolutionMaximized = evolutionEl && evolutionEl.classList.contains("evolution-maximized");
+
+    let outerW;
+    let outerH;
+    if (isEvolutionMaximized && plotEl && plotEl.clientWidth > 40 && plotEl.clientHeight > 40) {
+        outerW = Math.max(200, plotEl.clientWidth);
+        outerH = Math.max(160, plotEl.clientHeight);
+    } else if (evolutionEl && plotEl) {
+        const pad = 15;
+        const maxRefW = 800;
+        const maxRefH = 620;
+        const availW = Math.max(160, evolutionEl.clientWidth - 2 * pad);
+        const plotTop = plotEl.offsetTop;
+        const availH = Math.max(120, evolutionEl.clientHeight - plotTop - pad);
+        outerW = Math.min(maxRefW, availW);
+        outerH = Math.min(maxRefH, availH);
+    } else {
+        outerW = 600;
+        outerH = 420;
+    }
+
+    const margin = isEvolutionMaximized
+        ? { top: 20, right: 12, bottom: 52, left: 34 }
+        : { top: 24, right: 10, bottom: 70, left: 30 };
+    let width = outerW - margin.left - margin.right;
+    let height = outerH - margin.top - margin.bottom;
+    width = Math.max(60, width);
+    height = Math.max(50, height);
+    if (width + margin.left + margin.right > outerW) {
+        width = Math.max(40, outerW - margin.left - margin.right);
+    }
+    if (height + margin.top + margin.bottom > outerH) {
+        height = Math.max(40, outerH - margin.top - margin.bottom);
+    }
 
     const svg = container.append("svg")
         .attr("width", width + margin.left + margin.right)
@@ -6536,59 +6608,113 @@ async function drawThemeRiver(cityFile, dates, preloadedData) {
     const chartGroup = svg.append("g")
         .attr("transform", `translate(${margin.left},${margin.top})`);
 
-    const labelsGroup = svg.append("g")
-        .attr("transform", `translate(50, ${height + margin.top - 295})`);
+    const seasonBgGroup = chartGroup.append("g")
+        .attr("class", "evolution-season-bg")
+        .style("pointer-events", "none");
 
-    const stack = d3.stack()
-        .keys(attributes)
+    const stackGen = d3.stack()
         .value((d, key) => d[key] || 0)
         .order(d3.stackOrderNone)
         .offset(d3.stackOffsetWiggle);
 
-    const series = stack(normalizedData);
-
     const x = d3.scaleLinear()
-        .domain([0, normalizedData.length - 1])
+        .domain([0, Math.max(0, normalizedData.length - 1)])
         .range([0, width]);
 
     const y = d3.scaleLinear()
-        .domain([
-            d3.min(series.flat(), d => d[0]),
-            d3.max(series.flat(), d => d[1])
-        ])
+        .domain([0, 1])
         .range([height, 0]);
-
 
     const area = d3.area()
         .x((d, i) => x(i))
         .y0(d => y(d[0]))
         .y1(d => y(d[1]));
 
-    const updateGraph = (xDomain) => {
-        x.domain([
-            Math.max(0, xDomain[0]),
-            Math.min(normalizedData.length - 1, xDomain[1])
-        ]);
+    // Índices globales [inicio, fin] sobre normalizedData (como filtrar fechas en Serie de tiempo).
+    let evolutionGlobalRange = [0, Math.max(0, normalizedData.length - 1)];
 
-        chartGroup.selectAll("path")
-            .data(series)
-            .join("path")
-            .attr("fill", d => attributeColors[d.key])
-            .attr("d", area);
+    const updateGraph = (globalDomain) => {
+        const nFull = normalizedData.length;
+        if (nFull === 0) return;
 
-        const maxTicks = 30; // Número máximo de fechas visibles
-        const totalVisibleDates = Math.round(x.domain()[1] - x.domain()[0]);
-        const tickStep = Math.ceil(totalVisibleDates / maxTicks);
-        const visibleDates = d3.range(
-            Math.round(x.domain()[0]),
-            Math.round(x.domain()[1]),
-            tickStep
-        );
+        let g0 = Math.max(0, Math.floor(Math.min(globalDomain[0], globalDomain[1])));
+        let g1 = Math.min(nFull - 1, Math.ceil(Math.max(globalDomain[0], globalDomain[1])));
+        if (g1 < g0) {
+            const t = g0;
+            g0 = g1;
+            g1 = t;
+        }
+        evolutionGlobalRange = [g0, g1];
 
-        const dateTicks = visibleDates.map(i => ({
-            index: i,
-            date: normalizedData[i].date
-        }));
+        const viewData = normalizedData.slice(g0, g1 + 1);
+        const nv = viewData.length;
+        if (nv === 0) return;
+
+        x.domain([0, Math.max(0, nv - 1)]);
+
+        const activeKeys = getActiveEvolutionKeys();
+        let series = [];
+        if (activeKeys.length > 0) {
+            stackGen.keys(activeKeys);
+            series = stackGen(viewData);
+            const flat = series.flat();
+            y.domain([
+                d3.min(flat, d => d[0]),
+                d3.max(flat, d => d[1])
+            ]);
+        } else {
+            y.domain([0, 1]);
+        }
+
+        const stripData = viewData.map((d, i) => {
+            const dt = d.date instanceof Date ? d.date : new Date(d.date);
+            return { i, season: getSeason(dt) };
+        });
+
+        function evolutionStripWidth(i) {
+            if (nv <= 1) return width;
+            if (i < nv - 1) return Math.max(0.5, x(i + 1) - x(i));
+            return Math.max(0.5, x(i) - x(i - 1));
+        }
+
+        seasonBgGroup.selectAll("rect.season-strip")
+            .data(stripData, d => d.i)
+            .join(
+                enter => enter.append("rect").attr("class", "season-strip"),
+                update => update,
+                exit => exit.remove()
+            )
+            .attr("x", d => x(d.i))
+            .attr("y", 0)
+            .attr("width", d => evolutionStripWidth(d.i))
+            .attr("height", height)
+            .attr("fill", d => seasonColors[d.season] || "#ccc")
+            .attr("opacity", 0.15);
+
+        chartGroup.selectAll("path.stream-layer")
+            .data(series, d => d.key)
+            .join(
+                enter => enter.append("path")
+                    .attr("class", "stream-layer")
+                    .attr("fill", d => attributeColors[d.key] || "#999")
+                    .attr("d", area),
+                update => update
+                    .attr("fill", d => attributeColors[d.key] || "#999")
+                    .attr("d", area),
+                exit => exit.remove()
+            );
+
+        const maxTicks = 30;
+        const totalVisibleDates = nv;
+        const tickStep = Math.max(1, Math.ceil(totalVisibleDates / maxTicks));
+        const visibleDates = d3.range(0, nv, tickStep);
+
+        const dateTicks = visibleDates
+            .filter(i => i >= 0 && i < nv)
+            .map(i => ({
+                index: i,
+                date: viewData[i].date
+            }));
 
         const gridLines = chartGroup.selectAll(".grid-line")
             .data(dateTicks, d => d.index);
@@ -6610,8 +6736,8 @@ async function drawThemeRiver(cityFile, dates, preloadedData) {
         chartGroup.select(".x-axis")
             .call(
                 d3.axisBottom(x)
-                    .tickValues(visibleDates)
-                    .tickFormat(i => d3.timeFormat("%d-%m-%Y")(normalizedData[i].date))
+                    .tickValues(visibleDates.filter(i => i >= 0 && i < nv))
+                    .tickFormat(i => d3.timeFormat("%d-%m-%Y")(viewData[Math.min(Math.max(0, Math.round(i)), nv - 1)].date))
             )
             .selectAll("text")
             .attr("transform", `rotate(-45)`)
@@ -6619,38 +6745,33 @@ async function drawThemeRiver(cityFile, dates, preloadedData) {
     };
 
     chartGroup.append("g")
-        .selectAll("path")
-        .data(series)
-        .join("path")
-        .attr("fill", d => attributeColors[d.key])
-        .attr("d", area);
-
-    chartGroup.append("g")
         .attr("class", "x-axis")
         .attr("transform", `translate(0,${height})`)
         .call(
             d3.axisBottom(x)
                 .ticks(20)
-                .tickFormat(i => d3.timeFormat("%d-%m-%Y")(normalizedData[Math.round(i)].date))
+                .tickFormat(i => d3.timeFormat("%d-%m-%Y")(normalizedData[Math.min(Math.max(0, Math.round(i)), normalizedData.length - 1)].date))
         )
         .selectAll("text")
         .attr("transform", `rotate(-45)`)
         .style("text-anchor", "end");
-
-    // Eliminamos o comentamos esta línea para ocultar el eje Y
-    // chartGroup.append("g")
-    //     .call(d3.axisLeft(y));
 
     const brush = d3.brushX()
         .extent([[0, 0], [width, height]])
         .on("end", ({ selection }) => {
             if (!selection) return;
 
-            const [x0, x1] = selection.map(x.invert);
-            const startIndex = Math.max(0, Math.floor(x0));
-            const endIndex = Math.min(normalizedData.length - 1, Math.ceil(x1));
+            const [px0, px1] = selection.map(x.invert);
+            let l0 = Math.floor(Math.min(px0, px1));
+            let l1 = Math.ceil(Math.max(px0, px1));
+            const base = evolutionGlobalRange[0];
+            const viewLen = evolutionGlobalRange[1] - evolutionGlobalRange[0] + 1;
+            if (viewLen < 1) return;
+            l0 = Math.max(0, l0);
+            l1 = Math.min(viewLen - 1, l1);
+            if (l1 <= l0) return;
 
-            updateGraph([startIndex, endIndex]);
+            updateGraph([base + l0, base + l1]);
             chartGroup.select(".brush").call(brush.move, null);
         });
 
@@ -6662,22 +6783,98 @@ async function drawThemeRiver(cityFile, dates, preloadedData) {
         updateGraph([0, normalizedData.length - 1]);
     });
 
-    const labelOrder = [
-        "PM2_5", "PM10", "SO2", "NO2", "CO", "O3", "TEMP", "PRES", "DEWP", "RAIN"
-    ];
+    d3.selectAll("#evolution-toggles input.evolution-attr-cb")
+        .on("change", () => updateGraph([evolutionGlobalRange[0], evolutionGlobalRange[1]]));
 
-    labelOrder.forEach((attr, index) => {
-        labelsGroup.append("text")
-            .attr("x", (index % 5) * 120)
-            .attr("y", Math.floor(index / 5) * 20)
-            .text(attr)
-            .style("fill", attributeColors[attr])
-            .style("font-size", "14px")
-            .style("font-weight", "bold");
+    updateGraph([0, Math.max(0, normalizedData.length - 1)]);
+
+    lastEvolutionDraw = {
+        cityFile,
+        dates: Array.isArray(dates) ? [...dates] : [],
+        preloadedData: (preloadedData && preloadedData.length) ? preloadedData : undefined
+    };
+}
+
+function initEvolutionMaximizeControls() {
+    const evo = document.getElementById("evolution");
+    const btn = document.getElementById("evolution-maximize-btn");
+    const title = evo && evo.querySelector(".title-banner");
+    if (!evo || !btn) return;
+
+    const drag = { active: false, sx: 0, sy: 0, ol: 0, ot: 0 };
+
+    function setMaximized(on) {
+        if (on) {
+            const w = Math.min(window.innerWidth * 0.92, 1100);
+            const h = Math.min(window.innerHeight * 0.62, 520);
+            evo.classList.add("evolution-maximized");
+            evo.style.width = `${Math.round(w)}px`;
+            evo.style.height = `${Math.round(h)}px`;
+            evo.style.left = `${Math.round((window.innerWidth - w) / 2)}px`;
+            evo.style.top = `${Math.round((window.innerHeight - h) / 2)}px`;
+            btn.setAttribute("aria-pressed", "true");
+            btn.title = "Restaurar";
+            btn.setAttribute("aria-label", "Restaurar evolución temporal");
+        } else {
+            evo.classList.remove("evolution-maximized");
+            evo.style.width = "";
+            evo.style.height = "";
+            evo.style.left = "";
+            evo.style.top = "";
+            btn.setAttribute("aria-pressed", "false");
+            btn.title = "Maximizar";
+            btn.setAttribute("aria-label", "Maximizar evolución temporal");
+        }
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => void refreshEvolutionPanelChart());
+        });
+    }
+
+    btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        setMaximized(!evo.classList.contains("evolution-maximized"));
     });
 
-    // Llamada inicial para dibujar la gráfica con las fechas y las líneas
-    updateGraph([0, normalizedData.length - 1]);
+    if (title) {
+        title.addEventListener("mousedown", (e) => {
+            if (!evo.classList.contains("evolution-maximized")) return;
+            if (e.target.closest && e.target.closest(".evolution-maximize-btn")) return;
+            drag.active = true;
+            drag.sx = e.clientX;
+            drag.sy = e.clientY;
+            const r = evo.getBoundingClientRect();
+            drag.ol = r.left;
+            drag.ot = r.top;
+            e.preventDefault();
+        });
+    }
+
+    window.addEventListener("mousemove", (e) => {
+        if (!drag.active) return;
+        const nx = drag.ol + e.clientX - drag.sx;
+        const ny = drag.ot + e.clientY - drag.sy;
+        const maxL = Math.max(0, window.innerWidth - evo.offsetWidth);
+        const maxT = Math.max(0, window.innerHeight - evo.offsetHeight);
+        evo.style.left = `${Math.max(0, Math.min(maxL, nx))}px`;
+        evo.style.top = `${Math.max(0, Math.min(maxT, ny))}px`;
+    });
+
+    window.addEventListener("mouseup", () => {
+        drag.active = false;
+    });
+
+    let evoResizeTimer;
+    window.addEventListener("resize", () => {
+        if (!evo.classList.contains("evolution-maximized")) return;
+        clearTimeout(evoResizeTimer);
+        evoResizeTimer = setTimeout(() => void refreshEvolutionPanelChart(), 200);
+    });
+}
+
+if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initEvolutionMaximizeControls);
+} else {
+    initEvolutionMaximizeControls();
 }
 
 

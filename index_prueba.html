@@ -338,7 +338,16 @@
 
     <!-- GRAFICO PARA LA EVOLUCION DE LOS CONTAMIMANTES -->
     <div id="evolution">
+        <button type="button" id="evolution-maximize-btn" class="evolution-maximize-btn" aria-pressed="false" title="Maximizar" aria-label="Maximizar evolución temporal">
+            <svg class="evolution-icon-maximize" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
+            </svg>
+            <svg class="evolution-icon-minimize" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"/>
+            </svg>
+        </button>
         <div class="title-banner">Evolucion Temporal</div>
+        <div id="evolution-toggles" class="evolution-attribute-toggles" aria-label="Variables de evolución temporal"></div>
         <div id="evolution-plot"></div>
 
     </div>
