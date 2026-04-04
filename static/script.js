@@ -240,6 +240,7 @@ function getDimCols() {
 
 // Helper unificado para actualizar todo el dashboard
 async function updateAll(skipMap = false) {
+    window.currentGlobalLassoData = null;
     const selectedCity = document.querySelector('#city-checkboxes input[type="radio"]:checked')?.value || currentFilename;
     const visualizarTodo = document.getElementById('visualizar-todo').checked;
 
@@ -1040,7 +1041,15 @@ function parseCSV(data) {
 
 // Escuchar cambios en los checkboxes 
 document.querySelectorAll('.options-chek input[type="checkbox"]').forEach(checkbox => {
-    checkbox.addEventListener('change', updateAll);
+    checkbox.addEventListener('change', () => {
+        if (window.currentGlobalLassoData && window.currentGlobalLassoData.length > 0) {
+            const startDate = document.getElementById('fecha-inicio').value;
+            const endDate = document.getElementById('fecha-fin').value;
+            updateRadialChartWithSelection(window.currentGlobalLassoData, startDate, endDate);
+        } else {
+            updateChart();
+        }
+    });
 });
 
 // Escuchar cambios en el rango de fechas
@@ -1288,6 +1297,7 @@ function drawRadialChart(data, attributes) {
 
 // GRAFICAS RADIALES POR SELECCION EN LA GRAFICA DE DISTRIBUCION
 function updateRadialChartWithSelection(selectionData, fechaInicio, fechaFin) {
+    window.currentGlobalLassoData = selectionData;
     if (!selectionData || selectionData.length === 0) return;
 
     // Obtener atributos chequeados
@@ -6575,13 +6585,11 @@ async function drawThemeRiver(cityFile, dates, preloadedData) {
         outerH = Math.max(160, plotEl.clientHeight);
     } else if (evolutionEl && plotEl) {
         const pad = 15;
-        const maxRefW = 800;
-        const maxRefH = 620;
         const availW = Math.max(160, evolutionEl.clientWidth - 2 * pad);
         const plotTop = plotEl.offsetTop;
         const availH = Math.max(120, evolutionEl.clientHeight - plotTop - pad);
-        outerW = Math.min(maxRefW, availW);
-        outerH = Math.min(maxRefH, availH);
+        outerW = availW;
+        outerH = availH;
     } else {
         outerW = 600;
         outerH = 420;
@@ -6589,7 +6597,7 @@ async function drawThemeRiver(cityFile, dates, preloadedData) {
 
     const margin = isEvolutionMaximized
         ? { top: 20, right: 12, bottom: 52, left: 34 }
-        : { top: 24, right: 10, bottom: 70, left: 30 };
+        : { top: 20, right: 10, bottom: 30, left: 50 };
     let width = outerW - margin.left - margin.right;
     let height = outerH - margin.top - margin.bottom;
     width = Math.max(60, width);
@@ -6603,7 +6611,8 @@ async function drawThemeRiver(cityFile, dates, preloadedData) {
 
     const svg = container.append("svg")
         .attr("width", width + margin.left + margin.right)
-        .attr("height", height + margin.top + margin.bottom);
+        .attr("height", height + margin.top + margin.bottom)
+        .style("overflow", "visible");
 
     const chartGroup = svg.append("g")
         .attr("transform", `translate(${margin.left},${margin.top})`);
@@ -6740,8 +6749,11 @@ async function drawThemeRiver(cityFile, dates, preloadedData) {
                     .tickFormat(i => d3.timeFormat("%d-%m-%Y")(viewData[Math.min(Math.max(0, Math.round(i)), nv - 1)].date))
             )
             .selectAll("text")
-            .attr("transform", `rotate(-45)`)
-            .style("text-anchor", "end");
+            .style("text-anchor", "middle")
+            .style("font-size", "10px")
+            .attr("dx", "-34px")
+            .attr("dy", "0px")
+            .attr("transform", "rotate(-30)");
     };
 
     chartGroup.append("g")
@@ -6753,8 +6765,11 @@ async function drawThemeRiver(cityFile, dates, preloadedData) {
                 .tickFormat(i => d3.timeFormat("%d-%m-%Y")(normalizedData[Math.min(Math.max(0, Math.round(i)), normalizedData.length - 1)].date))
         )
         .selectAll("text")
-        .attr("transform", `rotate(-45)`)
-        .style("text-anchor", "end");
+        .style("text-anchor", "middle")
+        .style("font-size", "10px")
+        .attr("dx", "-34px")
+        .attr("dy", "0px")
+        .attr("transform", "rotate(-30)");
 
     const brush = d3.brushX()
         .extent([[0, 0], [width, height]])
